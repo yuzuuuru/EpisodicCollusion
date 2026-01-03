@@ -242,8 +242,12 @@ def main(args):
     # Scale (per-step) initial inventories with time horizon
     args.initial_inventories = [inv * args.time_horizon for inv in args.initial_inventories]
 
-    # adjust run name
-    args.wandb.name = get_unique_run_name(args.wandb.name, args.wandb.project, args.wandb.entity)
+    # adjust run name (only if wandb logging is enabled)
+    # get_unique_run_name uses the wandb API which requires authentication; avoid calling it when logging is disabled
+    if getattr(args.wandb, "log", False):
+        args.wandb.name = get_unique_run_name(
+            args.wandb.name, args.wandb.project, args.wandb.entity
+        )
 
     # calc price vector and set it in args:
     if args.possible_prices == None:
