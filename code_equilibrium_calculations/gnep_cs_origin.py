@@ -2,7 +2,6 @@
 import numpy as np
 from numpy.linalg import norm
 from typing import Tuple, Dict, List
-from demand_function import build_demand_scale
 
 import sys
 import os
@@ -31,29 +30,6 @@ import pyomo.environ as pyo
 import argparse
 
 
-def parse_demand_params(raw: str) -> Dict[str, float]:
-    """
-    Parse CLI string of the form "a=0.5,b=10" into a dict {a:0.5, b:10}.
-    Ignores empty segments.
-    """
-    if not raw:
-        return {}
-    params = {}
-    for part in raw.split(","):
-        if not part.strip():
-            continue
-        if "=" not in part:
-            raise ValueError(f"Invalid demand_param '{part}'. Use key=value.")
-        key, value = part.split("=", 1)
-        key = key.strip()
-        value = value.strip()
-        try:
-            params[key] = float(value)
-        except ValueError as exc:
-            raise ValueError(f"Invalid number for '{key}': {value}") from exc
-    return params
-
-
 # Define a single agent's optimization problem
 def define_agent_model(
     N: int,
@@ -63,7 +39,7 @@ def define_agent_model(
     mu: float,
     marginal_costs: np.ndarray,
     capacities: np.ndarray,
-    demand_scale_over_time: List[float],
+    demand_scale_factor: float,
     discount_factors: np.ndarray,
     current_prices: Dict[int, np.ndarray],
     regularization_tau=0,
@@ -142,9 +118,8 @@ def define_agent_model(
     model.integer_demand_constraints_j = (
         ConstraintList()
     )  # (N-1)*T many. These force d[j,t] to be == flor(demand[i,t] * lambda)
-    max_demand_scale_factor = max(demand_scale_over_time) if demand_scale_over_time else 0
     M1 = max(
-        1e5, time_horizon * max_demand_scale_factor
+        1e5, time_horizon * demand_scale_factor
     )  # ensures M is big enough to unbind activation constraints (theoretical max value for cumulative demand on 1 agent is T*lambda)
     M2 = max(
         1e5, max(capacities)
@@ -152,23 +127,22 @@ def define_agent_model(
 
     # t=0:
     for t in model.Time:
-        demand_scale_t = demand_scale_over_time[int(t)]
         # add i's constraints
         model.integer_demand_constraints_i.add(
-            model.d_i[t] <= demand_i(model, t) * demand_scale_t
+            model.d_i[t] <= demand_i(model, t) * demand_scale_factor
         )
         model.integer_demand_constraints_i.add(
-            model.d_i[t] >= demand_i(model, t) * demand_scale_t - 1
+            model.d_i[t] >= demand_i(model, t) * demand_scale_factor - 1
         )
 
         # add j's constraints
         for j in model.OtherAgents:
             if t == 0:  # at t=0 all agents are active, omit constraints for active set.
                 model.integer_demand_constraints_j.add(
-                    model.d_j[j, t] <= demand_j(model, j, t) * demand_scale_t
+                    model.d_j[j, t] <= demand_j(model, j, t) * demand_scale_factor
                 )
                 model.integer_demand_constraints_j.add(
-                    model.d_j[j, t] >= demand_j(model, j, t) * demand_scale_t - 1
+                    model.d_j[j, t] >= demand_j(model, j, t) * demand_scale_factor - 1
                 )
             else:
                 # add constraints for active set at t (depend on d_j for s < t (!)). Comment out next 2 lines to simulate not having an active set.
@@ -186,10 +160,10 @@ def define_agent_model(
 
                 # add j's constraints at t (depend on a_j at t)
                 model.integer_demand_constraints_j.add(
-                    model.d_j[j, t] <= demand_j(model, j, t) * demand_scale_t
+                    model.d_j[j, t] <= demand_j(model, j, t) * demand_scale_factor
                 )
                 model.integer_demand_constraints_j.add(
-                    model.d_j[j, t] >= demand_j(model, j, t) * demand_scale_t - 1
+                    model.d_j[j, t] >= demand_j(model, j, t) * demand_scale_factor - 1
                 )
 
     # Inventory constraint for agent i
@@ -224,7 +198,7 @@ def solve_gnep(
     mu: float,
     marginal_costs: List[float],
     capacities: List[int],
-    demand_scale_over_time: List[float],
+    demand_scale_factor: float,
     discount_factors: List[float],
     epsilon=1e-3,
     solver_name="ipopt",
@@ -308,7 +282,7 @@ def solve_gnep(
                     mu,
                     marginal_costs,
                     capacities,
-                    demand_scale_over_time,
+                    demand_scale_factor,
                     discount_factors,
                     previous_prices,  # use previous prices for Jacobi
                     regularization_tau,
@@ -323,7 +297,7 @@ def solve_gnep(
                     mu,
                     marginal_costs,
                     capacities,
-                    demand_scale_over_time,
+                    demand_scale_factor,
                     discount_factors,
                     current_prices,  # use current prices for Gauss-Seidel
                     regularization_tau,
@@ -433,7 +407,6 @@ def solve_gnep(
     active_agents = np.full(N, True)
     social_welfare = 0
     for t in range(time_horizon):
-        demand_scale_t = demand_scale_over_time[t]
         # at time t, calculate demand and revenue for each agent i
         for i in range(N):
             # calc i's demand. uses active_agents from previous round (initially all are active)
@@ -445,7 +418,7 @@ def solve_gnep(
             numerator = exp((quality_factors[i] - current_prices[i][t]) / mu)
             denominator = 1 + numerator + active_agents_sum
             final_demands[i][t] = np.floor(
-                numerator / denominator * demand_scale_t
+                numerator / denominator * demand_scale_factor
             )
 
             # calc i's revenue this round
@@ -510,20 +483,7 @@ def parse_arguments():
         "--demand_scale_factor",
         type=int,
         default=1000,
-        help="Default scaling factor (used with constant scaler or as fallback)",
-    )
-    parser.add_argument(
-        "--demand_scaler",
-        type=str,
-        default=None,
-        choices=["constant", "linear", "exponential"],
-        help="Choose demand scaler function. Default is constant (fixed demand_scale_factor).",
-    )
-    parser.add_argument(
-        "--demand_params",
-        type=str,
-        default=None,
-        help='Parameters for the demand scaler, e.g. "a=0.5,b=10".',
+        help="Scaling factor for demand per timestep",
     )
     parser.add_argument(
         "--quality_factors", type=float, nargs="+", help="Quality factors"
@@ -605,21 +565,8 @@ def main():
     marginal_costs = np.array(args.marginal_costs)
     discount_factors = np.array(args.discount_factors)
 
-    # Build demand scale over time
-    demand_params = parse_demand_params(args.demand_params) if args.demand_params else {}
-    demand_scale_over_time = build_demand_scale(
-        args.demand_scaler,
-        demand_params,
-        args.time_horizon,
-        args.demand_scale_factor,
-    )
-    total_demand_scale = np.sum(demand_scale_over_time)
-
     # Adjust regularization_tau
-    # Options for scaling: mean, max, or initial (t=0) value of demand_scale_over_time
-    regularization_tau_scaled = args.regularization_tau * np.mean(demand_scale_over_time)
-    # regularization_tau_scaled = args.regularization_tau * max(demand_scale_over_time)
-    # regularization_tau_scaled = args.regularization_tau * demand_scale_over_time[0]
+    regularization_tau_scaled = args.regularization_tau * args.demand_scale_factor
 
     ####
     # Calvano: N=2, T=1, mu=0.25, quality=2, cost=1, capacity=1, demand_scale_factor=1, truncated=False ==> expect competitive price of ca 1.47. can also be done with truncated=False, demand_scale_factor=1000, capacity=10e6.
@@ -632,7 +579,7 @@ def main():
         f"N={args.N}, T={args.time_horizon}, Epsilon: {args.epsilon}, regularisation: {args.regularization_tau}, solver: {args.solver_name}, method: {args.method}, initial prices: {args.initial_prices}"
     )
     print(
-        f"Total demand over time: {np.round(total_demand_scale, 2)} vs capacities of {capacities} w/ cumulative capacity of {np.sum(capacities)}"
+        f"Total demand over time: {args.time_horizon * args.demand_scale_factor} vs capacities of {capacities} w/ cumulative capacity of {np.sum(capacities)}"
     )
     print(
         f"Quality factors: {quality_factors}, Marginal costs: {marginal_costs}, Discount factors: {discount_factors}"
@@ -646,7 +593,7 @@ def main():
         args.mu,
         marginal_costs,
         capacities,
-        demand_scale_over_time,
+        args.demand_scale_factor,
         args.discount_factors,
         args.epsilon,
         args.solver_name,
