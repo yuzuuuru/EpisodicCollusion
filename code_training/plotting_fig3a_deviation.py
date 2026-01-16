@@ -451,7 +451,7 @@ def plot_forced_dev():
     plt.rcParams["xtick.direction"] = "out"
     plt.rcParams["ytick.direction"] = "out"
     plt.rcParams["axes.prop_cycle"] = plt.cycler(color=["#1f77b4", "#ff7f0e"])
-    plt.rcParams["text.usetex"] = True
+    # plt.rcParams["text.usetex"] = True  # Disabled to avoid LaTeX dependency
 
     num_agents = len(agents)
 

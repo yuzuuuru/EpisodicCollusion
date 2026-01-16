@@ -638,7 +638,7 @@ def plot_paper_fig(eval_metrics, forced_deviation_metrics_unstacked, x_axis, age
     plt.rcParams["ytick.major.width"] = 0.8
     plt.rcParams["xtick.direction"] = "out"
     plt.rcParams["ytick.direction"] = "out"
-    plt.rcParams["text.usetex"] = True
+    # plt.rcParams["text.usetex"] = True  # Disabled to avoid LaTeX dependency
 
     # Create a 1x3 subplot for the paper figure
     # fig, axs = plt.subplots(1, 3, figsize=(18, 6), subplot_kw={'projection': '3d'})

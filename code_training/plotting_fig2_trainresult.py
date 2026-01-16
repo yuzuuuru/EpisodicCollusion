@@ -332,7 +332,7 @@ def plot_vert(env_metrics, x_axis, gen_mean_p):
     plt.rcParams["xtick.direction"] = "out"
     plt.rcParams["ytick.direction"] = "out"
     plt.rcParams["axes.prop_cycle"] = plt.cycler(color=["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"])
-    plt.rcParams["text.usetex"] = True
+    # plt.rcParams["text.usetex"] = True  # Disabled to avoid LaTeX dependency
 
     fig, axs = plt.subplots(2, 1, figsize=(6, 8))
     env_metrics_sliced = {k: v[:, 0, x_axis, ...] for k, v in env_metrics.items()}
@@ -499,8 +499,13 @@ def plot_vert(env_metrics, x_axis, gen_mean_p):
     # axs[1].axhline(0, color="r", linestyle="--")
     # axs[1].axhline(1, color="g", linestyle="--")
     # axs[1].set_xlabel("episodes")
+    # axs[1].set_title(
+    #     f"Collusion Index (Generalized Mean, $\gamma={generalized_mean_p}$)",
+    #     fontsize=16,
+    #     pad=10,
+    # )
     axs[1].set_title(
-        f"Collusion Index (Generalized Mean, $\gamma={generalized_mean_p}$)",
+        f"Collusion Index (Generalized Mean, gamma={generalized_mean_p})",
         fontsize=16,
         pad=10,
     )
@@ -575,7 +580,7 @@ def plot_PPO_and_DQN_training_runs():
     plt.rcParams["xtick.direction"] = "out"
     plt.rcParams["ytick.direction"] = "out"
     plt.rcParams["axes.prop_cycle"] = plt.cycler(color=["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"])
-    plt.rcParams["text.usetex"] = True
+    # plt.rcParams["text.usetex"] = True  # Disabled to avoid LaTeX dependency
 
     fig, axs = plt.subplots(3, 1, figsize=(6, 10))
 
