@@ -28,7 +28,7 @@ class EnvParams:
     qualities: Float[Array, "..."]
     marginal_costs: Float[Array, "..."]
     horizontal_diff: float
-    demand_scaling_factor: int
+    demand_scaling_factor: Float[Array, "..."]  # time-varying: shape (time_horizon,)
     initial_inventories: Integer[Array, "..."]  # will be initial capacity of each agent
     initial_prices: Float[
         Array, "..."
@@ -57,7 +57,7 @@ class MarketEnvInfiniteInventoryInfiniteEpisode(environment.Environment):
             actions: Float[Array, "num_agents"],
             qualities: Float[Array, "num_agents"],
             horizontal_diff: float,
-            demand_scaling_factor: int,
+            demand_scaling_factor: Float[Array, "time_horizon"],
         ) -> Integer[Array, "num_agents"]:
             nonzero_inventory_mask = (
                 state.inventories > 0
@@ -72,7 +72,10 @@ class MarketEnvInfiniteInventoryInfiniteEpisode(environment.Environment):
                 conditional_utilities
             )  # Compute sum of utilities to go in denominator, but only for agents that are active
             demands = utilities / (sum_utilities + 1)  # Compute demand for each agent
-            scaled_demands = demand_scaling_factor * demands  # scale the demands
+            # Get time-varying demand scale factor for current time step
+            t_idx = jnp.squeeze(state.t)
+            scaling_at_t = demand_scaling_factor[t_idx]
+            scaled_demands = scaling_at_t * demands  # scale the demands
             integer_demands = jnp.floor(scaled_demands)  # floor them to get integer demands
             return integer_demands
 

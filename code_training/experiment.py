@@ -9,6 +9,7 @@ from environment.market_env_infinite_inventory import MarketEnvInfiniteInventory
 from environment.market_env_infinite_inventory_no_resets import (
     MarketEnvInfiniteInventoryInfiniteEpisode,
 )
+from environment.demand_function import build_demand_scale_array
 
 from runners.twoagent_gridsearch_runner import TwoAgentGridsearchRunner
 
@@ -97,7 +98,17 @@ def env_setup(args, logger=None):
                 omegaconf.OmegaConf.to_container(args.marginal_costs, resolve=True)
             ),
             horizontal_diff=args.horizontal_diff,
-            demand_scaling_factor=args.demand_scaling_factor,
+            demand_scaling_factor=jnp.array(
+                build_demand_scale_array(
+                    scaler=args.get("demand_scaler", None),
+                    params=omegaconf.OmegaConf.to_container(args.get("demand_params", None), resolve=True) if args.get("demand_params") else None,
+                    time_horizon=args.time_horizon,
+                    default_scale=args.demand_scaling_factor,
+                    start=args.get("demand_scale_start", None),
+                    end=args.get("demand_scale_end", None),
+                ),
+                dtype=jnp.float32,
+            ),
             initial_inventories=jnp.array(
                 omegaconf.OmegaConf.to_container(args.initial_inventories, resolve=True)
             ),
