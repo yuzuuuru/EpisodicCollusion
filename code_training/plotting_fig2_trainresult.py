@@ -6,6 +6,7 @@ import jax.numpy as jnp
 import numpy as np
 import matplotlib.pyplot as plt
 import glob
+import argparse
 
 from plotting_utils import (
     overall_mean_stdev_from_seed_means_variances,
@@ -22,112 +23,113 @@ plot_new = True
 plot_shaded_or_individual = "shaded"
 generalized_mean_p = 0.5
 
-run_name = save_dir.split("/")[-1]
-print(f"run_name: {run_name}")
+def process_save_dir(sd):
+    """Load data for a given `sd` and call plotting routines. Updates module-level globals used by plotting functions."""
+    global save_dir, run_name, args, log_data, update_dict, seeds
+    global all_env_stats, all_a1_metrics, all_a2_metrics, all_agent_metrics
+    global num_iters, num_seeds, time_horizon, num_envs, agents
+    global log_interval, x_axis, last_ten_percent_episodes, dqn_training_starts
+    global competitive_demand, collusive_demand
+    global competitive_profits_episodetotal, collusive_profits_episodetotal
 
-print(f"--- LOADING FROM {save_dir} ---")
-### LOAD DATA ###
-# load all files
-with open(f"{save_dir}/args.pkl", "rb") as file:
-    args = pickle.load(file)
+    save_dir = sd
+    run_name = save_dir.split("/")[-1]
+    print(f"run_name: {run_name}")
+
+    print(f"--- LOADING FROM {save_dir} ---")
+    # LOAD DATA
+    with open(f"{save_dir}/args.pkl", "rb") as file:
+        args = pickle.load(file)
+        try:
+            foo = args["deviation_times"]
+        except:
+            args["deviation_times"] = jnp.arange(args["num_inner_steps"])
+
     try:
-        foo = args["deviation_times"]
-    except:
-        args["deviation_times"] = jnp.arange(args["num_inner_steps"])
+        with open(f"{save_dir}/log_data.pkl", "rb") as file:
+            log_data = pickle.load(file)
+        if isinstance(log_data, tuple):
+            if len(log_data) == 2:
+                log_data, eval_log_data = log_data
+                forced_deviation_log_data = None
+            elif len(log_data) == 3:
+                log_data, eval_log_data, forced_deviation_log_data = log_data
+                forced_deviation_log_data_unstacked = [
+                    jax.tree.map(lambda v: v[:, :, i, ...], forced_deviation_log_data)
+                    for i in range(args["deviation_times"].shape[0])
+                ]
+            else:
+                raise ValueError("log_data tuple has an unexpected length")
+        exists_log_data = True
 
-try:
-    with open(f"{save_dir}/log_data.pkl", "rb") as file:
-        log_data = pickle.load(file)
-    if isinstance(log_data, tuple):
-        if len(log_data) == 2:
-            log_data, eval_log_data = log_data
-            forced_deviation_log_data = (
-                None  # has shape [num_seeds, num_configs, num_deviations, num_timesteps]
-            )
-        elif len(log_data) == 3:
-            log_data, eval_log_data, forced_deviation_log_data = log_data
-            forced_deviation_log_data_unstacked = [
-                jax.tree.map(lambda v: v[:, :, i, ...], forced_deviation_log_data)
-                for i in range(args["deviation_times"].shape[0])
-            ]
+        plot_dir = glob.glob(f"{save_dir}/plots_*")
+        if not plot_dir:
+            print(f"No plots_ directory found in {save_dir}. Proceeding to plot.")
         else:
-            raise ValueError("log_data tuple has an unexpected length")
-    exists_log_data = True
+            print(f"Found plot directory: {plot_dir[0]}")
 
-    plot_dir = glob.glob(f"{save_dir}/plots_*")
-    if not plot_dir:
-        print(f"No plots_ directory found in {save_dir}. Proceeding to plot.")
-        plot_new = True
-    else:
-        print(f"Found plot directory: {plot_dir[0]}")
+    except FileNotFoundError:
+        print(f"No log_data.pkl file found in {save_dir}. Proceeding directly to plots.")
+        exists_log_data = False
 
-except FileNotFoundError:
-    print(f"No log_data.pkl file found in {save_dir}. Proceeding directly to plots.")
-    exists_log_data = False
+    with open(f"{save_dir}/update_dict.pkl", "rb") as file:
+        update_dict = pickle.load(file)
 
-with open(f"{save_dir}/update_dict.pkl", "rb") as file:
-    update_dict = pickle.load(file)
+    with open(f"{save_dir}/seeds.pkl", "rb") as file:
+        seeds = pickle.load(file)
 
-with open(f"{save_dir}/seeds.pkl", "rb") as file:
-    seeds = pickle.load(file)
+    all_env_stats, all_a1_metrics, all_a2_metrics = log_data
+    all_agent_metrics = [all_a1_metrics, all_a2_metrics]
 
+    num_iters = args["num_iters"]
+    num_seeds = args["num_seeds"]
+    time_horizon = args["time_horizon"]
+    num_envs = args["num_envs"]
+    agents = [args[f"agent{i + 1}"] for i in range(args["num_players"])]
 
-all_env_stats, all_a1_metrics, all_a2_metrics = log_data
-all_agent_metrics = [all_a1_metrics, all_a2_metrics]
+    log_interval = max(num_iters // 1000, 5 if num_iters > 1000 else 1)
+    x_axis = np.arange(0, num_iters, log_interval)
+    last_ten_percent_episodes = len(x_axis) // 10
+    dqn_training_starts = args["dqn_default"]["initial_exploration_episodes"]
 
-num_iters = args["num_iters"]
-num_seeds = args["num_seeds"]
-time_horizon = args["time_horizon"]
-num_envs = args["num_envs"]
-agents = [args[f"agent{i + 1}"] for i in range(args["num_players"])]
+    competitive_demand = min(args["initial_inventories"][0], 470)
+    collusive_demand = 365
 
+    competitive_profits_episodetotal = args["competitive_profits_episodetotal"]
+    collusive_profits_episodetotal = args["collusive_profits_episodetotal"]
 
-log_interval = max(num_iters // 1000, 5 if num_iters > 1000 else 1)
-x_axis = np.arange(0, num_iters, log_interval)
-last_ten_percent_episodes = len(x_axis) // 10
-dqn_training_starts = args["dqn_default"]["initial_exploration_episodes"]
-
-competitive_demand = min(args["initial_inventories"][0], 470)
-collusive_demand = 365
-
-competitive_profits_episodetotal = args["competitive_profits_episodetotal"]
-# print(f"competitive_profits_episodetotal: {competitive_profits_episodetotal}")
-collusive_profits_episodetotal = args["collusive_profits_episodetotal"]
-# print(f"collusive_profits_episodetotal: {collusive_profits_episodetotal}")
-
-
-print(f"--- SETUP ---")
-print(f"  run name: {save_dir.split('/')[-1]}")
-print(f"  normalized rewards: {args['normalize_rewards_manually']}")
-inv_per_T = [inv / args["time_horizon"] for inv in args["initial_inventories"]]
-print(f"  inventories (/T): {inv_per_T}")
-print(f"  price grid: {args['which_price_grid']}")
-if args["agent_default"] == "DQN":
-    print(f"DQN setup:")
-    print(
-        f"  LR {args['dqn_default']['learning_rate']} {'annealing to 0' if args['dqn_default']['lr_scheduling'] else 'fixed'} {'over ' + str(args['dqn_default']['lr_anneal_duration'] * 100) + '% of run' if args['dqn_default']['lr_scheduling'] else '(flat)'}"
-    )
-    try:
+    print(f"--- SETUP ---")
+    print(f"  run name: {save_dir.split('/')[-1]}")
+    print(f"  normalized rewards: {args['normalize_rewards_manually']}")
+    inv_per_T = [inv / args["time_horizon"] for inv in args["initial_inventories"]]
+    print(f"  inventories (/T): {inv_per_T}")
+    print(f"  price grid: {args['which_price_grid']}")
+    if args["agent_default"] == "DQN":
+        print(f"DQN setup:")
         print(
-            f"  Epsilon anneals {'linearly' if args['dqn_default']['epsilon_anneal_type'] == 'linear' else 'exponentially'} from {args['dqn_default']['epsilon_start']} to {args['dqn_default']['epsilon_finish']} over {args['dqn_default']['epsilon_anneal_duration'] * 100:.2f}% of run"
+            f"  LR {args['dqn_default']['learning_rate']} {'annealing to 0' if args['dqn_default']['lr_scheduling'] else 'fixed'} {'over ' + str(args['dqn_default']['lr_anneal_duration'] * 100) + '% of run' if args['dqn_default']['lr_scheduling'] else '(flat)'}"
         )
-    except:
+        try:
+            print(
+                f"  Epsilon anneals {'linearly' if args['dqn_default']['epsilon_anneal_type'] == 'linear' else 'exponentially'} from {args['dqn_default']['epsilon_start']} to {args['dqn_default']['epsilon_finish']} over {args['dqn_default']['epsilon_anneal_duration'] * 100:.2f}% of run"
+            )
+        except:
+            print(
+                f"  Epsilon anneals linearly from {args['dqn_default']['epsilon_start']} to {args['dqn_default']['epsilon_finish']} over {args['dqn_default']['epsilon_anneal_duration'] * 100:.2f}% of run"
+            )
         print(
-            f"  Epsilon anneals linearly from {args['dqn_default']['epsilon_start']} to {args['dqn_default']['epsilon_finish']} over {args['dqn_default']['epsilon_anneal_duration'] * 100:.2f}% of run"
+            f"  buffer size: {args['dqn_default']['buffer_size']}, batch size: {args['dqn_default']['buffer_batch_size']}"
         )
-    print(
-        f"  buffer size: {args['dqn_default']['buffer_size']}, batch size: {args['dqn_default']['buffer_batch_size']}"
-    )
-    print(
-        f"  discount: {args['dqn_default']['discount']}, max grad norm: {args['dqn_default']['max_gradient_norm']}"
-    )
-    print(f"  hidden sizes: {args['dqn_default']['hidden_sizes']}")
-    print(
-        f"  training starts after {args['dqn_default']['initial_exploration_episodes']} eps; then trains every {args['dqn_default']['training_interval_episodes']} eps; target update every {args['dqn_default']['target_update_interval_episodes']} eps"
-    )
+        print(
+            f"  discount: {args['dqn_default']['discount']}, max grad norm: {args['dqn_default']['max_gradient_norm']}"
+        )
+        print(f"  hidden sizes: {args['dqn_default']['hidden_sizes']}")
+        print(
+            f"  training starts after {args['dqn_default']['initial_exploration_episodes']} eps; then trains every {args['dqn_default']['training_interval_episodes']} eps; target update every {args['dqn_default']['target_update_interval_episodes']} eps"
+        )
 
-elif args["agent_default"] == "PPO":
-    print(f"PPO agent (setup printing not implemented)")
+    elif args["agent_default"] == "PPO":
+        print(f"PPO agent (setup printing not implemented)")
 
 
 def generalized_mean(x, p=0.5, ax=1):
@@ -315,8 +317,7 @@ def load_and_display_plots():
     display_plots(plot_pattern)
 
 
-plot_main(all_env_stats, x_axis, generalized_mean_p)
-load_and_display_plots()
+# Note: top-level plotting moved into `process_save_dir` and CLI handling below.
 
 
 # %%
@@ -519,10 +520,13 @@ def plot_vert(env_metrics, x_axis, gen_mean_p):
     #     ax.spines['right'].set_visible(False)
 
     last_10_percent_avg = coll_idx_gen_mean[-int(len(coll_idx_gen_mean) * 0.1) :].mean()
-    if run_name == "DQN":
+    # default label position
+    text_x = 0.95
+    text_y = 0.02
+    if run_name.startswith("DQN"):
         text_x = 0.946
         text_y = 0.02
-    elif run_name == "PPO":
+    elif run_name.startswith("PPO"):
         text_x = 0.954
         text_y = 0.015
     elif run_name == "compPPO":
@@ -563,8 +567,7 @@ def plot_vert(env_metrics, x_axis, gen_mean_p):
     return fig, axs
 
 
-plot_vert(all_env_stats, x_axis, generalized_mean_p)
-display_single_plot(os.path.join(save_dir, "paper_plots", f"fig2_{run_name}_training.png"))
+# Top-level plot calls removed; use --save_dir to run per-experiment plotting.
 
 
 # %%
@@ -708,10 +711,37 @@ def plot_PPO_and_DQN_training_runs():
     return fig, axs
 
 
-# Call the function
-plot_dir = os.path.join("exp", "fig2_combined_plots")
-os.makedirs(plot_dir, exist_ok=True)
-fig, axs = plot_PPO_and_DQN_training_runs()
-display_single_plot(os.path.join(plot_dir, "fig2_DQN_PPO_training.png"))
+# Combined DQN/PPO figure generation removed from top-level execution.
 
 # %%
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Plot training results for one or more experiment directories.")
+    parser.add_argument(
+        "--save_dir",
+        nargs="+",
+        default=[save_dir],
+        help="One or more experiment directories under code_training (e.g. exp/DQN-50000-comparison)",
+    )
+    cli_args = parser.parse_args()
+
+    for sd in cli_args.save_dir:
+        print(f"\nProcessing: {sd}")
+        try:
+            process_save_dir(sd)
+            try:
+                plot_main(all_env_stats, x_axis, generalized_mean_p)
+            except Exception as e:
+                print(f"plot_main failed for {sd}: {e}")
+            try:
+                load_and_display_plots()
+            except Exception as e:
+                print(f"load_and_display_plots failed for {sd}: {e}")
+            try:
+                plot_vert(all_env_stats, x_axis, generalized_mean_p)
+                display_single_plot(os.path.join(save_dir, "paper_plots", f"fig2_{run_name}_training.png"))
+            except Exception as e:
+                print(f"plot_vert/display failed for {sd}: {e}")
+        except Exception as e:
+            print(f"Failed processing {sd}: {e}")
