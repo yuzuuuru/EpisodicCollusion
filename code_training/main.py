@@ -9,6 +9,20 @@ import collections.abc
 from functools import partial
 from hydra.core.hydra_config import HydraConfig
 
+# Set XLA flags before importing JAX
+# Use a reasonable number of cores for parallel execution
+# More cores = more memory usage and overhead
+logical_cores = os.cpu_count() or 1
+# os.cpu_count() returns logical cores (physical cores * threads per core)
+# Typically physical cores = logical cores / 2 when hyperthreading is enabled
+# Use about 1/4 to 1/2 of physical cores for good balance
+physical_cores_estimate = logical_cores // 2
+num_cores_to_use = max(physical_cores_estimate // 2, 1)
+os.environ['XLA_FLAGS'] = f'--xla_force_host_platform_device_count={num_cores_to_use}'
+print(f"Logical CPU cores: {logical_cores}")
+print(f"Estimated physical cores: {physical_cores_estimate}")
+print(f"Using {num_cores_to_use} cores for JAX parallel execution")
+
 import wandb
 import omegaconf
 import hydra
@@ -419,15 +433,7 @@ def main(args):
     print(f"--- Starting training loop ---")
     if doing_gridsearch:
         print(f"--- Running gridsearch ---")
-        # vmap run_experiment over updated config (inner) and seeds (outer)
-        run_experiment_vmap = jax.vmap(
-            jax.vmap(
-                run_experiment,
-                in_axes=(None, jax.tree.map(lambda x: 0, update_dict)),
-            ),
-            in_axes=(0, None),
-        )
-
+        
         # if num_seeds >1, create list of seeds [args.seed, args.seed+num_players, ...] with len = num_seeds
         if args.get("num_seeds") > 1:
             seeds = jnp.array(
@@ -439,12 +445,85 @@ def main(args):
             print(f"seeds: {seeds}")
         else:
             seeds = jnp.array([args.get("seed")])
+        
+        # Check if we can use pmap for parallel execution
+        num_devices_available = jax.local_device_count()
+        num_seeds_actual = len(seeds)
+        use_pmap = num_seeds_actual > 1 and num_devices_available > 1
+        
+        print(f"Number of JAX devices available: {num_devices_available}")
+        print(f"Number of seeds: {num_seeds_actual}")
+        
+        if use_pmap:
+            # Use min(num_seeds, num_devices) devices for efficiency
+            # Each device will handle at least one seed
+            num_devices = min(num_seeds_actual, num_devices_available)
+            
+            # Pad seeds to be divisible by number of devices we'll actually use
+            pad_size = (num_devices - (num_seeds_actual % num_devices)) % num_devices
+            if pad_size > 0:
+                seeds_padded = jnp.concatenate([seeds, seeds[:pad_size]])
+                print(f"Padded seeds from {num_seeds_actual} to {len(seeds_padded)}")
+            else:
+                seeds_padded = seeds
+                pad_size = 0
+            
+            print(f"Using {num_devices} devices out of {num_devices_available} available")
+            print(f"Seeds per device: {len(seeds_padded) // num_devices}")
+            
+            # Reshape seeds for pmap: (num_devices, seeds_per_device)
+            seeds_reshaped = seeds_padded.reshape(num_devices, -1)
+            
+            # pmap over devices (outer), vmap over seeds per device (middle), vmap over configs (inner)
+            run_experiment_parallel = jax.pmap(
+                jax.vmap(
+                    jax.vmap(
+                        run_experiment,
+                        in_axes=(None, jax.tree.map(lambda x: 0, update_dict)),
+                    ),
+                    in_axes=(0, None),
+                ),
+                in_axes=(0, None),
+            )
+        else:
+            # vmap run_experiment over updated config (inner) and seeds (outer)
+            run_experiment_parallel = jax.vmap(
+                jax.vmap(
+                    run_experiment,
+                    in_axes=(None, jax.tree.map(lambda x: 0, update_dict)),
+                ),
+                in_axes=(0, None),
+            )
+            seeds_reshaped = seeds
 
         # rngs = jax.random.split(rng, args.get("num_seeds"))
         run_time = time.time()
 
         # with profiler.trace("./jax-profile"):
-        agents, log_data, init_rng = run_experiment_vmap(seeds, update_dict)
+        agents, log_data, init_rng = run_experiment_parallel(seeds_reshaped, update_dict)
+        
+        # If we used pmap, reshape results back
+        if use_pmap:
+            # Results have shape (num_devices, seeds_per_device, num_configs, ...)
+            # Reshape to (num_devices * seeds_per_device, num_configs, ...)
+            agents = jax.tree.map(
+                lambda x: x.reshape(-1, *x.shape[2:]), agents
+            )
+            log_data = jax.tree.map(
+                lambda x: x.reshape(-1, *x.shape[2:]), log_data
+            )
+            init_rng = init_rng.reshape(-1, *init_rng.shape[2:])
+            
+            # Remove padding if we added any
+            if pad_size > 0:
+                agents = jax.tree.map(
+                    lambda x: x[:num_seeds_actual], agents
+                )
+                log_data = jax.tree.map(
+                    lambda x: x[:num_seeds_actual], log_data
+                )
+                init_rng = init_rng[:num_seeds_actual]
+        
         jax.block_until_ready(agents)
         jax.block_until_ready(log_data)
         jax.block_until_ready(init_rng)
