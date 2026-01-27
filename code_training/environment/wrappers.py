@@ -349,6 +349,84 @@ class NormalizeDoubleVecReward(GymnaxWrapper):
 
 
 @chex.dataclass
+class NormalizeNAgentVecObsEnvState:
+    """Stores vectorized env state for N-agent runner (single vmap over num_envs)"""
+    mean: dict
+    var: dict
+    count: float
+    env_state: EnvState
+
+
+class DummyNAgentVecObsWrapper(GymnaxWrapper):
+    """Dummy wrapper for N-agent runner - doesn't normalize, just correct piping.
+    Expects batch_reset/batch_step to be vmapped once over num_envs."""
+
+    def __init__(self, env, num_agents):
+        super().__init__(env)
+        self.num_agents = num_agents
+
+    @partial(jax.jit, static_argnums=(0,))
+    def batch_reset(self, key, params=None):
+        obs, state = self._env.batch_reset(key, params)
+        state = NormalizeNAgentVecObsEnvState(mean=None, var=None, count=None, env_state=state)
+        return obs, state
+
+    @partial(jax.jit, static_argnums=(0,))
+    def batch_step(self, key, state, action, params=None):
+        obs, env_state, rewards, done, info = self._env.batch_step(
+            key, state.env_state, action, params
+        )
+        state = NormalizeNAgentVecObsEnvState(mean=None, var=None, count=None, env_state=env_state)
+        return obs, state, rewards, done, info
+
+
+@chex.dataclass
+class NormalizeNAgentVecRewEnvState:
+    """Stores reward normalization state for N-agent runner"""
+    mean: jnp.ndarray
+    var: jnp.ndarray
+    count: float
+    return_val: float
+    env_state: EnvState
+
+
+class DummyNAgentVecRewWrapper(GymnaxWrapper):
+    """Dummy wrapper for N-agent runner - doesn't normalize rewards, just correct piping.
+    Expects batch_reset/batch_step to be vmapped once over num_envs."""
+
+    def __init__(self, env, num_agents):
+        super().__init__(env)
+        self.num_agents = num_agents
+
+    @partial(jax.jit, static_argnums=(0,))
+    def batch_reset(self, key, params=None):
+        obs, state = self._env.batch_reset(key, params)
+        state = NormalizeNAgentVecRewEnvState(
+            mean=jnp.zeros((self.num_agents,)),
+            var=jnp.zeros((self.num_agents,)),
+            count=0,
+            return_val=0,
+            env_state=state,
+        )
+        return obs, state
+
+    @partial(jax.jit, static_argnums=(0,))
+    def batch_step(self, key, state, action, params=None):
+        obs, env_state, rewards, done, info = self._env.batch_step(
+            key, state.env_state, action, params
+        )
+        state = NormalizeNAgentVecRewEnvState(
+            mean=state.mean,
+            var=state.var,
+            count=state.count,
+            return_val=state.return_val,
+            env_state=env_state,
+        )
+        # Return: obs, state, normalized_rewards, unnormalized_rewards, done, info
+        return obs, state, rewards, rewards, done, info
+
+
+@chex.dataclass
 class NormalizeVecObsEnvState:
     """Stores vectorized env state"""
 

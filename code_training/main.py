@@ -239,12 +239,17 @@ def main(args):
     config_name = HydraConfig.get().job.config_name
     print(f"Config name: {config_name}")
     args.num_inner_steps = args.time_horizon
-    if args.agent1 == "DQN" and args.agent2 == "DQN":
+    
+    # Determine agent types for reward gamma (n-agent compatible)
+    default_agent = args.get("agent_default", None)
+    agent_types = [args.get(f"agent{i+1}", default_agent) for i in range(args.num_players)]
+    
+    if all(a == "DQN" for a in agent_types):
         args.normalizing_rewards_gamma = args.dqn_default.discount
-    elif args.agent1 == "PPO" and args.agent2 == "PPO":
+    elif all(a == "PPO" for a in agent_types):
         args.normalizing_rewards_gamma = args.ppo_default.gamma
-    elif not hasattr(args, "normalizing_rewards_gamma"):
-        args.normalizing_rewards_gamma = None
+    elif not hasattr(args, "normalizing_rewards_gamma") or args.normalizing_rewards_gamma is None:
+        args.normalizing_rewards_gamma = args.dqn_default.discount  # default to DQN
 
     # get the collusive and competitive price. for now, assumes equal inventory sizes & thus equilibrium prices
 
@@ -557,10 +562,10 @@ def main(args):
             pickle.dump(hyperparam_mapping, f)
             print(f"--- Hyperparameter mapping saved to {hyperparam_mapping_path} ---")
 
-        agent1, agent2 = agents
-        agent1.save_state(os.path.join(save_dir, "agent_1_state.pkl"))
-        agent2.save_state(os.path.join(save_dir, "agent_2_state.pkl"))
-        print(f"--- Agents saved to {save_dir} ---")
+        # Save all agents (n-agent compatible)
+        for i, agent in enumerate(agents):
+            agent.save_state(os.path.join(save_dir, f"agent_{i+1}_state.pkl"))
+        print(f"--- {len(agents)} Agents saved to {save_dir} ---")
 
     else:
         print(f"--- Running single training ---")

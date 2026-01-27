@@ -12,6 +12,7 @@ from environment.market_env_infinite_inventory_no_resets import (
 from environment.demand_function import build_demand_scale_array
 
 from runners.twoagent_gridsearch_runner import TwoAgentGridsearchRunner
+from runners.n_agent_runner import NAgentRunner
 
 from agents.ppo.ppo import make_agent
 from agents.dqn.dqn import make_DQN_agent
@@ -133,6 +134,9 @@ def runner_setup(args, env, agents, save_dir, logger):
     if args.get("runner") == "rl-gridsearch":
         logger.info("Gridsearch with two player RL Runner")
         return TwoAgentGridsearchRunner(agents, env, save_dir, args)
+    elif args.get("runner") == "rl-n-agent":
+        logger.info(f"N-Agent Runner with {args.get('num_players')} agents")
+        return NAgentRunner(agents, env, save_dir, args)
     else:
         raise ValueError(f"Unknown runner type {args.get('runner')}")
 

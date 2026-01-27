@@ -1,0 +1,144 @@
+hydra:
+  run:
+    dir: .
+  sweep:
+    dir: .
+    subdir: .
+  job_logging:
+    root:
+      level: INFO
+  sweeper:
+    params:
+      ++seed: range(1,10)
+
+# Global vars
+seed: 0 
+num_seeds: 2
+save_dir: "./exp/${wandb.group}/${wandb.name}"
+save: True
+save_interval: 10000
+debug: False
+
+shuffle_players: False
+
+# Agents - N agent configuration
+# Use agent_default for all agents, or specify agent1, agent2, agent3, etc.
+agent_default: 'DQN'
+# Individual agent overrides (optional):
+# agent1: 'DQN'
+# agent2: 'DQN'
+# agent3: 'DQN'
+
+# Environment
+env_id: MarketEnv-v1
+env_type: sequential
+num_players: 3  # Number of agents (can be 2, 3, 4, etc.)
+time_horizon: 20
+min_price:
+max_price:
+num_prices: 15
+xi: 0.2
+
+possible_prices:
+
+# N-agent parameters - arrays with num_players elements
+qualities: [2, 2, 2]
+marginal_costs: [1, 1, 1]
+horizontal_diff: 0.25
+demand_scaling_factor: 1000
+initial_inventories: [440, 440, 440]  # Per timestep, scaled by time_horizon
+initial_prices: [1, 1, 1]
+initial_actions: [-1, -1, -1]
+
+which_price_grid: "constrained"
+
+# Equilibrium values (computed manually for n agents or set to reasonable defaults)
+# For 3 symmetric agents, these are approximations
+competitive_action:
+competitive_price:
+competitive_profits: [280, 280, 280]  # Approximate per-step profits
+competitive_profits_episodetotal:
+collusive_action:
+collusive_price:
+collusive_profits: [350, 350, 350]  # Approximate per-step profits
+collusive_profits_episodetotal:
+
+# Runner - use new n-agent runner
+runner: rl-n-agent
+
+# Training hyperparameters
+num_envs: 1
+num_opps: 1  # Fixed at 1 for n-agent runner (no opponent shaping)
+num_outer_steps: 1
+num_inner_steps:  # filled by main = time_horizon
+num_iters: 200  # Small value for testing
+
+# Reward normalization
+normalize_obs: False
+normalize_rewards_wrapper: False
+normalize_rewards_manually: True
+normalizing_rewards_min: 200  # Approximate for 3-agent setting
+normalizing_rewards_max: 380
+normalizing_rewards_gamma:
+clip_rewards: False
+reward_clipping_limit:
+
+# PPO learner params
+ppo_default:
+  num_minibatches: 4
+  num_epochs: 20
+  gamma: 1
+  gae_lambda: 0.95
+  ppo_clipping_epsilon: 0.2
+  value_coeff: 0.5
+  clip_value: True
+  max_gradient_norm: 0.5
+  anneal_entropy: "exponential"
+  entropy_coeff_start: 0.01
+  entropy_anneal_duration: 0.75
+  entropy_coeff_horizon:
+  entropy_coeff_end: 0.0001
+  entropy_clipping: True
+  lr_scheduling: False
+  learning_rate: 0.001
+  adam_epsilon: 1e-5
+  with_memory: True
+  hidden_sizes: [64, 64]
+  separate: True
+  with_cnn: False
+
+# DQN learner params
+dqn_default:
+  max_gradient_norm: 25
+  adam_epsilon: 0.001
+  learning_rate: 0.001
+  lr_scheduling: False
+  lr_anneal_duration: 1
+  buffer_size: 200000
+  buffer_batch_size: 64
+  discount: 1
+  epsilon_start: 1
+  epsilon_finish: 0.015
+  epsilon_anneal_duration: 1
+  epsilon_anneal_time:
+  epsilon_anneal_type: "exponential"
+  epsilon_clipping: False
+  polyak_tau: 1
+  initial_exploration_episodes: 50  # Smaller for quick testing
+  training_interval_episodes: 4
+  target_update_interval_episodes: 200
+  hidden_sizes: [64, 64]
+
+# Logging setup
+wandb:
+  entity: "uspace"
+  tags: 'n-agent-test'
+  project: 'marl-col'  
+  group: 'DQN-n-agents'
+  name: run-seed-${seed}
+  mode: online
+  log: False
+
+# Gridsearch parameters
+gridsearch:
+  time_horizon: [20]
