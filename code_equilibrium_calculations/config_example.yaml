@@ -1,0 +1,52 @@
+# 実験設定ファイルの例
+# 使用方法: python run_experiment.py config_example.yaml
+
+experiment_name: "capacity_sweep_default"
+
+# 固定パラメータ
+# これらのパラメータは全ての実験で共通
+fixed_params:
+  time_horizon: 5          # 時間ステップ数
+  mu: 0.25                 # ロジットモデルのmuパラメータ
+  quality_factor: 2        # 品質係数（全エージェント共通）
+  marginal_cost: 1         # 限界費用（全エージェント共通）
+  demand_scale_factor: 1000  # 需要スケールファクター
+  discount_factor: 1       # 割引率（全エージェント共通）
+  solver_name: "bonmin"    # ソルバー（ipopt, bonmin, couenne）
+  method: "gauss-seidel"   # GNEP解法（gauss-seidel, jacobi）
+  initial_prices: "quality_factor"  # 初期価格設定方法
+  epsilon: 0.0001          # 収束判定閾値 (1e-4)
+  regularization_tau: 0.01 # 正則化パラメータ
+  max_iterations: 100      # 最大反復回数（テスト時は小さく設定可能）
+
+# スイープパラメータ
+# これらのパラメータを変化させて実験を行う
+sweep_params:
+  N: [2,3]                   # エージェント数（リストで複数指定可能）
+  capacities:              # キャパシティのリスト
+    - 50
+    - 100
+    - 150
+    - 200
+    - 250
+    - 305
+    - 320
+    - 335
+    - 350
+    - 365
+    - 380
+    - 395
+    - 410
+    - 425
+    - 440
+    - 455
+    - 470
+    - 500
+
+# 検証設定
+validation:
+  price_consistency_threshold: 0.01  # 時系列価格の一貫性チェック閾値（1%） 0.01なら1%以上価格が変動しているかどうかをチェック
+
+# 出力設定
+output:
+  base_dir: "experiments"  # 実験結果の出力先ディレクトリ

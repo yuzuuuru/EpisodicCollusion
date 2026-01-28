@@ -1,0 +1,28 @@
+# テスト用設定ファイル（少ないパラメータで高速に動作確認）
+# 使用方法: python run_experiment.py config_test.yaml
+
+experiment_name: "test_run"
+
+fixed_params:
+  time_horizon: 2          # 短いtime_horizonでテスト
+  mu: 0.25
+  quality_factor: 2
+  marginal_cost: 1
+  demand_scale_factor: 1000
+  discount_factor: 1
+  solver_name: "bonmin"
+  method: "gauss-seidel"
+  initial_prices: "quality_factor"
+  epsilon: 0.0001  # 1e-4
+  regularization_tau: 0.01
+  max_iterations: 10       # テスト用に少ない反復回数
+
+sweep_params:
+  N: [2]                   # N=2のみ
+  capacities: [200, 400, 600]  # 3点のみでテスト
+
+validation:
+  price_consistency_threshold: 0.05  # テスト用に緩い閾値
+
+output:
+  base_dir: "experiments"

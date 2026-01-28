@@ -181,12 +181,14 @@ def solve_monopoly(
     solver_name="ipopt",
     debug=False,
     initial_prices="zeros",
-) -> None:
+) -> Tuple[Dict[int, np.ndarray], Dict[int, np.ndarray], Dict[int, float]]:
     """
-    Initializes the pyomo model and solves a GNEP.
+    独占（共謀）価格を計算するための最適化問題を解く。
 
     Returns:
-    - Price vectors for all agents that together constitute a Nash Equilibrium.
+    - prices_dict: 各アイテムの価格ベクトル
+    - demands_dict: 各アイテムの需要ベクトル
+    - total_demands_dict: 各アイテムの総需要
     """
 
     # Initial guess for prices, structured as a dictionary mapping each agent to a numpy array of prices

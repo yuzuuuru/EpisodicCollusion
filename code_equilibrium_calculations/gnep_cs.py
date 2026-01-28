@@ -232,7 +232,8 @@ def solve_gnep(
     regularization_tau=0,
     debug=False,
     initial_prices="zeros",
-) -> None:
+    max_iterations=100,
+) -> Tuple[Dict[int, np.ndarray], Dict[int, np.ndarray], Dict[int, np.ndarray]]:
     """
     Initializes the pyomo model and solves a GNEP.
 
@@ -285,7 +286,7 @@ def solve_gnep(
         i: np.zeros(time_horizon) for i in range(N)
     }  # init prev prices for convergence check
     iteration_count = 0  # iteration counter
-    max_iterations = 100  # Prevent infinite loops
+    # max_iterations はパラメータとして受け取る
 
     ## Start main GNEP solving loop
     while iteration_count < max_iterations:
@@ -429,7 +430,7 @@ def solve_gnep(
     ## Once done optimising, simulate one period using the final price vectors
     final_demands: Dict[int, np.ndarray] = {i: np.zeros(time_horizon) for i in range(N)}
     final_profits: Dict[int, np.ndarray] = {i: np.zeros(time_horizon) for i in range(N)}
-    inventory_left = capacities
+    inventory_left = np.array(capacities, dtype=float)  # コピーを作成し、floatに変換
     active_agents = np.full(N, True)
     social_welfare = 0
     for t in range(time_horizon):
@@ -571,6 +572,12 @@ def parse_arguments():
         ],
         help="Method to initialize prices",
     )
+    parser.add_argument(
+        "--max_iterations",
+        type=int,
+        default=100,
+        help="Maximum number of iterations for GNEP solver",
+    )
 
     args = parser.parse_args()
 
@@ -654,6 +661,7 @@ def main():
         regularization_tau_scaled,
         args.debug,
         args.initial_prices,
+        args.max_iterations,
     )
 
 
