@@ -13,7 +13,7 @@ hydra:
 
 # Global vars
 seed: 0 
-num_seeds: 8
+num_seeds: 100
 save_dir: "./exp/${wandb.group}/${wandb.name}"
 save: True
 save_interval: 10000
@@ -70,7 +70,7 @@ num_envs: 1
 num_opps: 1  # Fixed at 1 for n-agent runner (no opponent shaping)
 num_outer_steps: 1
 num_inner_steps:  # filled by main = time_horizon
-num_iters: 500  # Small value for testing
+num_iters: 1000  # Small value for testing
 
 # Reward normalization
 normalize_obs: False

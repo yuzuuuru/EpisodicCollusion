@@ -23,6 +23,26 @@ plot_new = True
 plot_shaded_or_individual = "shaded"
 generalized_mean_p = 0.5
 
+
+def unpack_train_log_data(train_log_data):
+    if isinstance(train_log_data, (list, tuple)):
+        if len(train_log_data) == 3:
+            all_env_stats, all_a1_metrics, all_a2_metrics = train_log_data
+            all_agent_metrics = [all_a1_metrics, all_a2_metrics]
+            return all_env_stats, all_a1_metrics, all_a2_metrics, all_agent_metrics
+        if len(train_log_data) == 2:
+            all_env_stats, all_metrics_list = train_log_data
+            all_agent_metrics = list(all_metrics_list)
+            all_a1_metrics = all_metrics_list[0] if len(all_metrics_list) > 0 else None
+            all_a2_metrics = all_metrics_list[1] if len(all_metrics_list) > 1 else None
+            return all_env_stats, all_a1_metrics, all_a2_metrics, all_agent_metrics
+        if len(train_log_data) == 1:
+            return train_log_data[0], None, None, []
+    if isinstance(train_log_data, dict):
+        return train_log_data, None, None, []
+    raise ValueError("train_log_data has an unexpected format")
+
+
 def process_save_dir(sd):
     """Load data for a given `sd` and call plotting routines. Updates module-level globals used by plotting functions."""
     global save_dir, run_name, args, log_data, update_dict, seeds
@@ -48,18 +68,22 @@ def process_save_dir(sd):
     try:
         with open(f"{save_dir}/log_data.pkl", "rb") as file:
             log_data = pickle.load(file)
+        train_log_data = log_data
+        eval_log_data = None
+        forced_deviation_log_data = None
+        forced_deviation_log_data_unstacked = None
         if isinstance(log_data, tuple):
             if len(log_data) == 2:
-                log_data, eval_log_data = log_data
-                forced_deviation_log_data = None
+                train_log_data, eval_log_data = log_data
             elif len(log_data) == 3:
-                log_data, eval_log_data, forced_deviation_log_data = log_data
+                train_log_data, eval_log_data, forced_deviation_log_data = log_data
                 forced_deviation_log_data_unstacked = [
                     jax.tree.map(lambda v: v[:, :, i, ...], forced_deviation_log_data)
                     for i in range(args["deviation_times"].shape[0])
                 ]
             else:
                 raise ValueError("log_data tuple has an unexpected length")
+        log_data = train_log_data
         exists_log_data = True
 
         plot_dir = glob.glob(f"{save_dir}/plots_*")
@@ -78,14 +102,16 @@ def process_save_dir(sd):
     with open(f"{save_dir}/seeds.pkl", "rb") as file:
         seeds = pickle.load(file)
 
-    all_env_stats, all_a1_metrics, all_a2_metrics = log_data
-    all_agent_metrics = [all_a1_metrics, all_a2_metrics]
+    all_env_stats, all_a1_metrics, all_a2_metrics, all_agent_metrics = unpack_train_log_data(
+        log_data
+    )
 
     num_iters = args["num_iters"]
     num_seeds = args["num_seeds"]
     time_horizon = args["time_horizon"]
     num_envs = args["num_envs"]
-    agents = [args[f"agent{i + 1}"] for i in range(args["num_players"])]
+    # Support both explicit agent1, agent2, ... and agent_default fallback
+    agents = [args.get(f"agent{i + 1}", args.get("agent_default", "PPO")) for i in range(args["num_players"])]
 
     log_interval = max(num_iters // 1000, 5 if num_iters > 1000 else 1)
     x_axis = np.arange(0, num_iters, log_interval)
@@ -141,9 +167,28 @@ def generalized_mean(x, p=0.5, ax=1):
     return res ** (1 / p)
 
 
+def slice_env_metric(metric, x_axis):
+    metric = np.asarray(metric)
+    if metric.ndim == 1:
+        return metric[x_axis][None, :]
+    if metric.ndim == 2:
+        return metric[:, x_axis]
+    return metric[:, 0, x_axis, ...]
+
+
+def slice_env_metrics(env_metrics, x_axis):
+    return {k: slice_env_metric(v, x_axis) for k, v in env_metrics.items()}
+
+
+def metric_variance_or_zeros(env_metrics_sliced, mean_key, var_key):
+    if var_key in env_metrics_sliced:
+        return env_metrics_sliced[var_key]
+    return np.zeros_like(env_metrics_sliced[mean_key])
+
+
 def plot_main(env_metrics, x_axis, gen_mean_p):
     fig, axs = plt.subplots(2, 2, figsize=(12, 8))
-    env_metrics_sliced = {k: v[:, 0, x_axis, ...] for k, v in env_metrics.items()}
+    env_metrics_sliced = slice_env_metrics(env_metrics, x_axis)
     title = "4 metrics"
 
     # filter x-axis if DQN agents were used so we don't plot non-training eps at the start
@@ -186,7 +231,11 @@ def plot_main(env_metrics, x_axis, gen_mean_p):
         agent_seed_means = env_metrics_sliced[
             f"train/all_envs/mean_action/action_player_{agent_idx + 1}"
         ]
-        agent_seed_vars = env_metrics_sliced[f"vmap_metrics/action_var_player_{agent_idx + 1}"]
+        agent_seed_vars = metric_variance_or_zeros(
+            env_metrics_sliced,
+            f"train/all_envs/mean_action/action_player_{agent_idx + 1}",
+            f"vmap_metrics/action_var_player_{agent_idx + 1}",
+        )
         if plot_shaded_or_individual == "individual":
             axs[0, 1], line, _, _ = plot_agent_metrics_indiv_seeds(
                 axs[0, 1],
@@ -336,7 +385,7 @@ def plot_vert(env_metrics, x_axis, gen_mean_p):
     # plt.rcParams["text.usetex"] = True  # Disabled to avoid LaTeX dependency
 
     fig, axs = plt.subplots(2, 1, figsize=(6, 8))
-    env_metrics_sliced = {k: v[:, 0, x_axis, ...] for k, v in env_metrics.items()}
+    env_metrics_sliced = slice_env_metrics(env_metrics, x_axis)
     # title = f"{args["agent1"]} Collusion"
 
     # filter x-axis if DQN agents were used so we don't plot non-training eps at the start
@@ -361,12 +410,24 @@ def plot_vert(env_metrics, x_axis, gen_mean_p):
     total_profit_mean = np.mean(total_profit_means, axis=0)
     total_profit_std = np.std(total_profit_means, axis=0)
 
-    agent_colors = plt.cm.tab10.colors  #  "#1f77b4", "#ff7f0e"]
+    # Choose colors: keep the original two-color scheme for 2 agents,
+    # otherwise generate colors dynamically from a colormap for n>=3.
+    n_agents = len(agents)
+    if n_agents == 2:
+        agent_colors = ["#1f77b4", "#ff7f0e"]
+    else:
+        cmap = plt.get_cmap("tab10")
+        agent_colors = [cmap(i % cmap.N) for i in range(n_agents)]
+
     for agent_idx, agent in enumerate(agents):
         agent_seed_means = env_metrics_sliced[
             f"train/all_envs/mean_action/action_player_{agent_idx + 1}"
         ]
-        agent_seed_vars = env_metrics_sliced[f"vmap_metrics/action_var_player_{agent_idx + 1}"]
+        agent_seed_vars = metric_variance_or_zeros(
+            env_metrics_sliced,
+            f"train/all_envs/mean_action/action_player_{agent_idx + 1}",
+            f"vmap_metrics/action_var_player_{agent_idx + 1}",
+        )
         # axs[0], line, _, _ = plot_agent_metrics_shaded_selectable_color(
         #     axs[0],
         #     agent_seed_means,
@@ -406,9 +467,10 @@ def plot_vert(env_metrics, x_axis, gen_mean_p):
             greedy_action_mean = env_metrics_sliced[
                 f"vmap_metrics/greedy_action_mean_player_{agent_idx + 1}"
             ]
-            greedy_action_var = env_metrics_sliced[
-                f"vmap_metrics/greedy_action_var_player_{agent_idx + 1}"
-            ]
+            greedy_action_var = env_metrics_sliced.get(
+                f"vmap_metrics/greedy_action_var_player_{agent_idx + 1}",
+                np.zeros_like(greedy_action_mean),
+            )
             axs[0].plot(
                 filtered_x_axis,
                 greedy_action_mean.mean(axis=0),
@@ -600,8 +662,16 @@ def plot_PPO_and_DQN_training_runs():
             args = pickle.load(file)
         with open(f"{save_dir}/log_data.pkl", "rb") as file:
             log_data = pickle.load(file)
-        log_data, _, _ = log_data
-        all_env_stats, _, _ = log_data  # detangling from agent metrics
+        if isinstance(log_data, tuple):
+            if len(log_data) == 3:
+                train_log_data, _, _ = log_data
+            elif len(log_data) == 2:
+                train_log_data, _ = log_data
+            else:
+                raise ValueError("log_data tuple has an unexpected length")
+        else:
+            train_log_data = log_data
+        all_env_stats, _, _, _ = unpack_train_log_data(train_log_data)
 
         log_interval = max(args["num_iters"] // 1000, 5 if args["num_iters"] > 1000 else 1)
         x_axis = np.arange(0, args["num_iters"], log_interval)
@@ -615,14 +685,25 @@ def plot_PPO_and_DQN_training_runs():
         env_stats = all_data[algo]["env_stats"]
         x_axis = all_data[algo]["x_axis"]
 
-        env_metrics_sliced = {k: v[:, 0, x_axis, ...] for k, v in env_stats.items()}
+        env_metrics_sliced = slice_env_metrics(env_stats, x_axis)
 
-        agent_colors = ["#1f77b4", "#ff7f0e"]
+        # Keep original 2-color scheme when there are exactly 2 agents;
+        # otherwise pick colors from a colormap to support 3+ agents.
+        n_agents = args["num_players"]
+        if n_agents == 2:
+            agent_colors = ["#1f77b4", "#ff7f0e"]
+        else:
+            cmap = plt.get_cmap("tab10")
+            agent_colors = [cmap(i % cmap.N) for i in range(n_agents)]
         for agent_idx in range(args["num_players"]):
             agent_seed_means = env_metrics_sliced[
                 f"train/all_envs/mean_action/action_player_{agent_idx + 1}"
             ]
-            agent_seed_vars = env_metrics_sliced[f"vmap_metrics/action_var_player_{agent_idx + 1}"]
+            agent_seed_vars = metric_variance_or_zeros(
+                env_metrics_sliced,
+                f"train/all_envs/mean_action/action_player_{agent_idx + 1}",
+                f"vmap_metrics/action_var_player_{agent_idx + 1}",
+            )
 
             metric_mean, metric_std = overall_mean_stdev_from_seed_means_variances(
                 agent_seed_means, agent_seed_vars, args["num_envs"]
@@ -665,7 +746,7 @@ def plot_PPO_and_DQN_training_runs():
         env_stats = all_data[algo]["env_stats"]
         x_axis = all_data[algo]["x_axis"]
 
-        env_metrics_sliced = {k: v[:, 0, x_axis, ...] for k, v in env_stats.items()}
+        env_metrics_sliced = slice_env_metrics(env_stats, x_axis)
 
         agent_profit_gains_seeds = np.zeros((args["num_seeds"], args["num_players"], len(x_axis)))
         for agent_idx in range(args["num_players"]):
