@@ -15,6 +15,9 @@ from plotting_utils import (
     display_single_plot,
 )
 
+# Import equilibrium calculation functions for recalculating collusion index
+from main import calc_nash_price_and_quantity, calc_monopolistic_price_and_quantity, equilibrium_profits
+
 ### Alter this for different runs. Options for the algorithm: "DQN", "PPO", "compPPO", "unconstDQN"
 save_dir = "exp/DQN"
 
@@ -22,6 +25,8 @@ save_dir = "exp/DQN"
 plot_new = True
 plot_shaded_or_individual = "shaded"
 generalized_mean_p = 0.5
+# Flag to recalculate collusion index with correct parameters
+recalculate_collusion_index = True
 
 
 def unpack_train_log_data(train_log_data):
@@ -51,6 +56,7 @@ def process_save_dir(sd):
     global log_interval, x_axis, last_ten_percent_episodes, dqn_training_starts
     global competitive_demand, collusive_demand
     global competitive_profits_episodetotal, collusive_profits_episodetotal
+    global correct_competitive_profits, correct_collusive_profits  # For recalculated values
 
     save_dir = sd
     run_name = save_dir.split("/")[-1]
@@ -123,6 +129,32 @@ def process_save_dir(sd):
 
     competitive_profits_episodetotal = args["competitive_profits_episodetotal"]
     collusive_profits_episodetotal = args["collusive_profits_episodetotal"]
+
+    # Recalculate correct competitive/collusive profits for N-agent case
+    num_players = args.get("num_players", 2)
+    constraint = args["initial_inventories"][0] // args["time_horizon"]  # Per-step inventory
+    marginal_costs = args["marginal_costs"]
+    
+    if recalculate_collusion_index and num_players >= 3:
+        print(f"  Recalculating equilibrium profits for N={num_players}, constraint={constraint}")
+        price_nash, quantity_nash = calc_nash_price_and_quantity(constraint, num_players)
+        price_monopolistic, quantity_monopolistic = calc_monopolistic_price_and_quantity(constraint, num_players)
+        
+        correct_competitive_profits, correct_competitive_profits_episodetotal, \
+        correct_collusive_profits, correct_collusive_profits_episodetotal = equilibrium_profits(
+            time_horizon,
+            price_nash,
+            quantity_nash,
+            price_monopolistic,
+            quantity_monopolistic,
+            marginal_costs,
+        )
+        print(f"    Nash price: {price_nash}, Monopoly price: {price_monopolistic}")
+        print(f"    Competitive profits (episode): {correct_competitive_profits_episodetotal}")
+        print(f"    Collusive profits (episode): {correct_collusive_profits_episodetotal}")
+    else:
+        correct_competitive_profits = args["competitive_profits"]
+        correct_collusive_profits = args["collusive_profits"]
 
     print(f"--- SETUP ---")
     print(f"  run name: {save_dir.split('/')[-1]}")
@@ -285,10 +317,36 @@ def plot_main(env_metrics, x_axis, gen_mean_p):
     ## bottom left: collusion index
     # overall collidx can be geom mean or average of individual agents' profit gains
     agent_profit_gains_seeds = np.zeros((num_seeds, len(agents), len(filtered_x_axis)))
-    for agent_idx, agent in enumerate(agents):
-        agent_profit_gains_seeds[:, agent_idx, :] = env_metrics_sliced[
-            f"train/collusion_index/mean_player_{agent_idx + 1}"
-        ]  # [seeds, N, T]
+    
+    # Check if we should recalculate collusion index from total_profit data
+    num_players = args.get("num_players", 2)
+    if recalculate_collusion_index and num_players >= 3:
+        # Recalculate collusion index using correct parameters
+        print(f"  Recalculating collusion index from total_profit data...")
+        for agent_idx, agent in enumerate(agents):
+            # Get total profit per episode for this agent [seeds, T]
+            total_profit_key = f"vmap_metrics/total_profit_mean_player_{agent_idx + 1}"
+            if total_profit_key in env_metrics_sliced:
+                total_profits = env_metrics_sliced[total_profit_key]  # [seeds, T]
+                # Calculate collusion index: (profit - competitive) / (collusive - competitive)
+                comp_profit = correct_competitive_profits[agent_idx] * time_horizon
+                coll_profit = correct_collusive_profits[agent_idx] * time_horizon
+                denominator = coll_profit - comp_profit
+                if abs(denominator) > 1e-8:
+                    agent_profit_gains_seeds[:, agent_idx, :] = (total_profits - comp_profit) / denominator
+                else:
+                    agent_profit_gains_seeds[:, agent_idx, :] = 0.0
+            else:
+                # Fallback to stored collusion index
+                agent_profit_gains_seeds[:, agent_idx, :] = env_metrics_sliced[
+                    f"train/collusion_index/mean_player_{agent_idx + 1}"
+                ]
+    else:
+        # Use stored collusion index values
+        for agent_idx, agent in enumerate(agents):
+            agent_profit_gains_seeds[:, agent_idx, :] = env_metrics_sliced[
+                f"train/collusion_index/mean_player_{agent_idx + 1}"
+            ]  # [seeds, N, T]
 
     coll_idx_seeds_arith = agent_profit_gains_seeds.mean(axis=1)
 
@@ -515,10 +573,31 @@ def plot_vert(env_metrics, x_axis, gen_mean_p):
 
     ## bottom collusion index
     agent_profit_gains_seeds = np.zeros((num_seeds, len(agents), len(filtered_x_axis)))
-    for agent_idx, agent in enumerate(agents):
-        agent_profit_gains_seeds[:, agent_idx, :] = env_metrics_sliced[
-            f"train/collusion_index/mean_player_{agent_idx + 1}"
-        ]  # [seeds, N, T]
+    
+    # Check if we should recalculate collusion index from total_profit data
+    num_players = args.get("num_players", 2)
+    if recalculate_collusion_index and num_players >= 3:
+        # Recalculate collusion index using correct parameters
+        for agent_idx, agent in enumerate(agents):
+            total_profit_key = f"vmap_metrics/total_profit_mean_player_{agent_idx + 1}"
+            if total_profit_key in env_metrics_sliced:
+                total_profits = env_metrics_sliced[total_profit_key]
+                comp_profit = correct_competitive_profits[agent_idx] * time_horizon
+                coll_profit = correct_collusive_profits[agent_idx] * time_horizon
+                denominator = coll_profit - comp_profit
+                if abs(denominator) > 1e-8:
+                    agent_profit_gains_seeds[:, agent_idx, :] = (total_profits - comp_profit) / denominator
+                else:
+                    agent_profit_gains_seeds[:, agent_idx, :] = 0.0
+            else:
+                agent_profit_gains_seeds[:, agent_idx, :] = env_metrics_sliced[
+                    f"train/collusion_index/mean_player_{agent_idx + 1}"
+                ]
+    else:
+        for agent_idx, agent in enumerate(agents):
+            agent_profit_gains_seeds[:, agent_idx, :] = env_metrics_sliced[
+                f"train/collusion_index/mean_player_{agent_idx + 1}"
+            ]  # [seeds, N, T]
 
     # coll_idx_seeds_arith = agent_profit_gains_seeds.mean(axis=1)
 

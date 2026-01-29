@@ -102,116 +102,202 @@ def equilibrium_profits(
     )
 
 
-def calc_nash_price_and_quantity(constraint=1000):
+def calc_nash_price_and_quantity(constraint=1000, num_players=2):
     """this will import the GNEP solver and calculate the Nash equilibrium price for that setting.
     For now, assumes equal inventory sizes & thus equilibrium prices
     Manually adjust for now:
+    N=2:
     - Unconstrained: 1.471, 470 | reward 221
-    - Constrained at (420*T): 1.7588, 420 | reward 318"""
-    if constraint > 470:
-        price_nash = 1.471
-        # quantity_nash = 470
-    elif constraint == 455:
-        price_nash = 1.617
-    elif constraint == 440:
-        price_nash = 1.693
-    elif constraint == 425:
-        price_nash = 1.74
-    elif constraint == 420:
-        price_nash = 1.7588
-    elif constraint == 410:
-        price_nash = 1.795
-    elif constraint == 395:
-        price_nash = 1.843
-    elif constraint == 380:
-        price_nash = 1.885
-    elif constraint == 365:
-        price_nash = 1.925
-    elif constraint == 230:
-        price_nash = 2.213
+    - Constrained at (420*T): 1.7588, 420 | reward 318
+    N=3:
+    - Based on provided equilibrium calculations
+    """
+    if num_players == 2:
+        if constraint > 470:
+            price_nash = 1.471
+            # quantity_nash = 470
+        elif constraint == 455:
+            price_nash = 1.617
+        elif constraint == 440:
+            price_nash = 1.693
+        elif constraint == 425:
+            price_nash = 1.74
+        elif constraint == 420:
+            price_nash = 1.7588
+        elif constraint == 410:
+            price_nash = 1.795
+        elif constraint == 395:
+            price_nash = 1.843
+        elif constraint == 380:
+            price_nash = 1.885
+        elif constraint == 365:
+            price_nash = 1.925
+        elif constraint == 230:
+            price_nash = 2.213
+        else:
+            print("constraint not found")
+            exit()
+        quantity_nash = int(min(470, constraint))
+    elif num_players == 3:
+        # N=3 equilibrium data (inventory per step, before multiplying by T)
+        # Data points: inventory -> nash_price
+        # 50 -> 2.708, 100 -> 2.486, 150 -> 2.325, 200 -> 2.173, 250 -> 2.0, 305 -> 1.681, 320 -> 1.481
+        if constraint >= 320:
+            price_nash = 1.481
+        elif constraint >= 305:
+            price_nash = 1.681
+        elif constraint >= 250:
+            price_nash = 2.0
+        elif constraint >= 200:
+            price_nash = 2.173
+        elif constraint >= 150:
+            price_nash = 2.325
+        elif constraint >= 100:
+            price_nash = 2.486
+        elif constraint >= 50:
+            price_nash = 2.708
+        else:
+            print(f"constraint {constraint} not found for N=3")
+            exit()
+        # For N=3, quantity_nash needs to be determined based on demand
+        # Using similar logic to N=2, but adjust based on equilibrium
+        quantity_nash = int(constraint)  # Placeholder: adjust as needed
     else:
-        print("constraint not found")
+        print(f"num_players={num_players} not supported")
         exit()
-
-    quantity_nash = int(min(470, constraint))
+    
     return price_nash, quantity_nash
 
 
-def calc_monopolistic_price_and_quantity():
+def calc_monopolistic_price_and_quantity(constraint=1000, num_players=2):
     """this will import the GNEP solver and calculate the monopolistic price for that setting
-    reward: 337"""
-    price_monopolistic = 1.925  # Calvano setting placeholder
-    quantity_monopolistic = 365
+    N=2: reward: 337
+    N=3: Based on provided equilibrium calculations
+    """
+    if num_players == 2:
+        price_monopolistic = 1.925  # Calvano setting
+        quantity_monopolistic = 365
+    elif num_players == 3:
+        # N=3 monopoly data
+        # For inventory <= 250, nash = monop (fully constrained)
+        # For inventory > 250, monop = 2.0
+        if constraint >= 305:
+            price_monopolistic = 2.0
+        elif constraint >= 250:
+            price_monopolistic = 2.0
+        elif constraint >= 200:
+            price_monopolistic = 2.173  # Same as nash when constrained
+        elif constraint >= 150:
+            price_monopolistic = 2.325
+        elif constraint >= 100:
+            price_monopolistic = 2.486
+        elif constraint >= 50:
+            price_monopolistic = 2.708
+        else:
+            print(f"constraint {constraint} not found for N=3 monopoly")
+            exit()
+        # Quantity at monopoly price - use constraint as placeholder
+        quantity_monopolistic = int(constraint) # ここが合っているかは不明！！！ quaintity_monopolisticってなんだ??
+    else:
+        print(f"num_players={num_players} not supported in calc_monopolistic_price_and_quantity")
+        exit()
+    
     return price_monopolistic, quantity_monopolistic
 
 
-def calc_rewards_range(which_price_grid, constraint):
+def calc_rewards_range(which_price_grid, constraint, num_players=2):
     """returns the lowest and highest reward achievable for an agent with inventory constraint, depending on the price grid
     output is meant to be used for setting the normalizing_rewards_min and normalizing_rewards_max in the config
+    Note: N=3 values are provisional and should be updated with actual calculations
     """
-    if which_price_grid == "unconstrained":
-        if constraint > 470:
-            lowest_reward = 63
-            highest_reward = 445
-        elif constraint == 455:
-            lowest_reward = 68
-            highest_reward = 400
-        elif constraint == 440:
-            lowest_reward = 68
-            highest_reward = 387
-        elif constraint == 425:
-            lowest_reward = 68
-            highest_reward = 379
-        elif constraint == 420:
-            lowest_reward = 68
-            highest_reward = 379
-        elif constraint == 410:
-            lowest_reward = 68
-            highest_reward = 379
-        elif constraint == 395:
-            lowest_reward = 68
-            highest_reward = 365
-        elif constraint == 380:
-            lowest_reward = 68
-            highest_reward = 356
-        elif constraint == 365:
-            lowest_reward = 68
-            highest_reward = 354
-        elif constraint == 230:
-            lowest_reward = 68
-            highest_reward = 234
+    if num_players == 2:
+        if which_price_grid == "unconstrained":
+            if constraint > 470:
+                lowest_reward = 63
+                highest_reward = 445
+            elif constraint == 455:
+                lowest_reward = 68
+                highest_reward = 400
+            elif constraint == 440:
+                lowest_reward = 68
+                highest_reward = 387
+            elif constraint == 425:
+                lowest_reward = 68
+                highest_reward = 379
+            elif constraint == 420:
+                lowest_reward = 68
+                highest_reward = 379
+            elif constraint == 410:
+                lowest_reward = 68
+                highest_reward = 379
+            elif constraint == 395:
+                lowest_reward = 68
+                highest_reward = 365
+            elif constraint == 380:
+                lowest_reward = 68
+                highest_reward = 356
+            elif constraint == 365:
+                lowest_reward = 68
+                highest_reward = 354
+            elif constraint == 230:
+                lowest_reward = 68
+                highest_reward = 234
+            else:
+                # Default values for N=2
+                lowest_reward = 63
+                highest_reward = 445
 
-    if which_price_grid == "constrained":
-        if constraint > 470:
-            lowest_reward = 63
-            highest_reward = 445
-        elif constraint == 455:
-            lowest_reward = 129
-            highest_reward = 393
-        elif constraint == 440:
-            lowest_reward = 172
-            highest_reward = 381
-        elif constraint == 425:
-            lowest_reward = 205
-            highest_reward = 372
-        elif constraint == 420:
-            lowest_reward = 218
-            highest_reward = 368
-        elif constraint == 410:
-            lowest_reward = 243
-            highest_reward = 363
-        elif constraint == 395:
-            lowest_reward = 279
-            highest_reward = 356
-        elif constraint == 380:
-            lowest_reward = 309
-            highest_reward = 347
-        elif constraint == 365:
-            lowest_reward = 337
-            highest_reward = 337
-        elif constraint == 230:
-            lowest_reward = 279
-            highest_reward = 279
+        elif which_price_grid == "constrained":
+            if constraint > 470:
+                lowest_reward = 63
+                highest_reward = 445
+            elif constraint == 455:
+                lowest_reward = 129
+                highest_reward = 393
+            elif constraint == 440:
+                lowest_reward = 172
+                highest_reward = 381
+            elif constraint == 425:
+                lowest_reward = 205
+                highest_reward = 372
+            elif constraint == 420:
+                lowest_reward = 218
+                highest_reward = 368
+            elif constraint == 410:
+                lowest_reward = 243
+                highest_reward = 363
+            elif constraint == 395:
+                lowest_reward = 279
+                highest_reward = 356
+            elif constraint == 380:
+                lowest_reward = 309
+                highest_reward = 347
+            elif constraint == 365:
+                lowest_reward = 337
+                highest_reward = 337
+            elif constraint == 230:
+                lowest_reward = 279
+                highest_reward = 279
+            else:
+                # Default values for N=2
+                lowest_reward = 63
+                highest_reward = 445
+    
+    elif num_players == 3:
+        # Provisional values for N=3 - TODO: calculate actual values
+        # Using conservative estimates based on N=2
+        if which_price_grid == "unconstrained":
+            lowest_reward = 50  # Provisional
+            highest_reward = 400  # Provisional
+        else:  # constrained
+            lowest_reward = 153  # Provisional
+            highest_reward = 250  # Provisional
+    
+    else:
+        print(f"num_players={num_players} not supported in calc_rewards_range")
+        # Default fallback values
+        lowest_reward = 50
+        highest_reward = 400
 
     return lowest_reward, highest_reward
 
@@ -254,10 +340,14 @@ def main(args):
     # get the collusive and competitive price. for now, assumes equal inventory sizes & thus equilibrium prices
 
     args.normalizing_rewards_min, args.normalizing_rewards_max = calc_rewards_range(
-        args.which_price_grid, args.initial_inventories[0]
+        args.which_price_grid, args.initial_inventories[0], num_players=args.num_players
     )
-    price_nash, quantity_nash = calc_nash_price_and_quantity(args.initial_inventories[0])
-    price_monopolistic, quantity_monopolistic = calc_monopolistic_price_and_quantity()
+    price_nash, quantity_nash = calc_nash_price_and_quantity(
+        args.initial_inventories[0], num_players=args.num_players
+    )
+    price_monopolistic, quantity_monopolistic = calc_monopolistic_price_and_quantity(
+        args.initial_inventories[0], num_players=args.num_players
+    )
     # Scale (per-step) initial inventories with time horizon
     args.initial_inventories = [inv * args.time_horizon for inv in args.initial_inventories]
 

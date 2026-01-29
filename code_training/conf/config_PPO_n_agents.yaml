@@ -45,7 +45,7 @@ qualities: [2, 2, 2]
 marginal_costs: [1, 1, 1]
 horizontal_diff: 0.25
 demand_scaling_factor: 1000
-initial_inventories: [440, 440, 440]  # Per timestep, scaled by time_horizon
+initial_inventories: [320, 320, 320]  # Per timestep, scaled by time_horizon
 initial_prices: [1, 1, 1]
 initial_actions: [-1, -1, -1]
 
