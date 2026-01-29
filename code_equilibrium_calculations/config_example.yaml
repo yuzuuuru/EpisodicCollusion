@@ -6,7 +6,7 @@ experiment_name: "capacity_sweep_default"
 # 固定パラメータ
 # これらのパラメータは全ての実験で共通
 fixed_params:
-  time_horizon: 5          # 時間ステップ数
+  time_horizon: 1          # 時間ステップ数
   mu: 0.25                 # ロジットモデルのmuパラメータ
   quality_factor: 2        # 品質係数（全エージェント共通）
   marginal_cost: 1         # 限界費用（全エージェント共通）
