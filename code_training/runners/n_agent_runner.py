@@ -486,10 +486,13 @@ class NAgentRunner:
         """Compute evaluation statistics for n agents."""
         stats = {}
         
+        # Episode length for collusion index calculation
+        episode_length = self.args["num_inner_steps"]
+        
         for i in range(self.num_agents):
             traj = trajs_list[i]  # [num_inner, num_opps, num_envs]
             
-            # Rewards
+            # Rewards (per timestep)
             rewards = traj.rewards_unnormalized.squeeze()
             stats[f"rewards_{i+1}"] = rewards
             stats[f"rewards_rescaled_{i+1}"] = traj.rewards_rescaled.squeeze()
@@ -509,10 +512,15 @@ class NAgentRunner:
             inv = env_traj.env_state.env_state.inventories[..., i].squeeze()
             stats[f"inventories_{i+1}"] = inv / initial_inventories[i]
             
-            # Collusion index
+            # Collusion index - use episode total profits like watchers.py
             if i < len(self.competitive_profits):
-                collusion_index = (rewards - self.competitive_profits[i]) / (
-                    self.collusive_profits[i] - self.competitive_profits[i] + 1e-8
+                # Sum rewards over episode to get episodic profits
+                episodic_profits = rewards.sum(axis=0) if rewards.ndim > 1 else rewards.sum()
+                # competitive/collusive profits are per-step, multiply by episode_length
+                competitive_profits_episode = self.competitive_profits[i] * episode_length
+                collusive_profits_episode = self.collusive_profits[i] * episode_length
+                collusion_index = (episodic_profits - competitive_profits_episode) / (
+                    collusive_profits_episode - competitive_profits_episode + 1e-8
                 )
                 stats[f"collusion_index_{i+1}"] = collusion_index
             
