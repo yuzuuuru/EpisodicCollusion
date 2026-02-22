@@ -8,7 +8,10 @@ import glob
 from plotting_utils import display_single_plot
 
 ### Alter this for different runs. Options for the algorithm: "DQN", "PPO", "compPPO", "unconstDQN"
-save_dir = "exp/DQN"
+import sys
+save_dir = os.environ.get("EC_SAVE_DIR", "exp/DQN")
+if "--save_dir" in sys.argv:
+    save_dir = sys.argv[sys.argv.index("--save_dir") + 1]
 
 
 ########################################################

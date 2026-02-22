@@ -16,7 +16,10 @@ from plotting_utils import (
 )
 
 ### Alter this for different runs. Options for the algorithm: "DQN", "PPO", "compPPO", "unconstDQN"
-save_dir = "exp/DQN"
+import sys
+save_dir = os.environ.get("EC_SAVE_DIR", "exp/DQN")
+if "--save_dir" in sys.argv:
+    save_dir = sys.argv[sys.argv.index("--save_dir") + 1]
 
 
 plot_new = True
@@ -324,7 +327,7 @@ def load_and_display_plots():
 def plot_vert(env_metrics, x_axis, gen_mean_p):
     # pretty plots
     plt.style.use("seaborn-v0_8-whitegrid")
-    plt.rcParams["font.family"] = "Helvetica"
+    plt.rcParams["font.family"] = "sans-serif"
     plt.rcParams["font.size"] = 11
     plt.rcParams["axes.linewidth"] = 0.8
     plt.rcParams["axes.edgecolor"] = "#333333"
