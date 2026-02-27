@@ -105,18 +105,19 @@ class DQN:
             - t: t/time_horizon -> [0,1] or 1-t/time_horizon -> [1,0]
             """
             new_observation = observation.copy()
-            inv_levels = obs_limits.get("inventory_discretization_levels", -1)
-            if inv_levels >= 1:
-                if inv_levels == 1:
-                    new_observation["inventories"] = jnp.zeros_like(observation["inventories"], dtype=jnp.float32)
-                else:
-                    new_observation["inventories"] = rescale_to_zero_one(
-                        observation["inventories"], 0, inv_levels - 1
-                    )
-            else:
-                new_observation["inventories"] = rescale_to_zero_one(
-                    observation["inventories"], 0, obs_limits["inventory_uppers"]
-                )
+            inv = observation["inventories"].astype(jnp.float32)
+            inv_max = obs_limits["inventory_uppers"].astype(jnp.float32)
+            inv_levels = obs_limits["inventory_discretization_levels"]
+            # Branch-free discretization: supports both concrete and traced inv_levels
+            n_minus_1 = jnp.maximum(inv_levels - 1, 1).astype(jnp.float32)
+            bucket = jnp.floor(inv * n_minus_1 / inv_max)
+            bucket = jnp.clip(bucket, 0.0, n_minus_1)
+            discretized_rescaled = bucket / n_minus_1
+            raw_rescaled = inv / inv_max
+            new_observation["inventories"] = jnp.where(
+                inv_levels >= 2, discretized_rescaled,
+                jnp.where(inv_levels == 1, jnp.zeros_like(inv), raw_rescaled)
+            )
             new_observation["last_actions"] = rescale_to_zero_one(
                 observation["last_actions"], 0, obs_limits["last_actions_upper"]
             )
@@ -733,13 +734,14 @@ def make_DQN_agent(
     random_key = jax.random.PRNGKey(seed=seed)
 
     # MarketEnv specific:
+    _n = args.get("num_inventory_levels", -1)
     obs_limits = {
         "inventory_uppers": jnp.array(args.get("initial_inventories")),
         "last_actions_upper": args.get("num_prices"),
         "last_prices_lower": args.get("possible_prices")[0],
         "last_prices_upper": args.get("possible_prices")[-1],
         "t_upper": args.get("time_horizon"),
-        "inventory_discretization_levels": args.get("num_inventory_levels", -1),
+        "inventory_discretization_levels": _n if _n is not None else -1,
     }
 
     agent = DQN(

@@ -127,7 +127,9 @@ def env_setup(args, logger=None):
     else:
         raise ValueError(f"Unknown env id {args.env_id}")
 
-    num_inv_levels = args.get("num_inventory_levels", -1)
+    num_inv_levels = args.get("num_inventory_levels", -1) or -1
+    if not isinstance(num_inv_levels, int):
+        num_inv_levels = int(num_inv_levels)
     if num_inv_levels >= 1:
         from environment.wrappers import InventoryDiscretizationWrapper
         env = InventoryDiscretizationWrapper(
