@@ -126,6 +126,16 @@ def env_setup(args, logger=None):
             )
     else:
         raise ValueError(f"Unknown env id {args.env_id}")
+
+    num_inv_levels = args.get("num_inventory_levels", -1)
+    if num_inv_levels >= 1:
+        from environment.wrappers import InventoryDiscretizationWrapper
+        env = InventoryDiscretizationWrapper(
+            env,
+            num_inventory_levels=num_inv_levels,
+            initial_inventories=omegaconf.OmegaConf.to_container(args.initial_inventories, resolve=True),
+        )
+
     return env, env_params
 
 

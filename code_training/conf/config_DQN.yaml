@@ -49,6 +49,8 @@ demand_scaling_factor: 1000
 initial_inventories: [440, 440] # this is per single timestep! automatically scaled to time horizon. coll: 365, monop: 470. good value between: 420.
 initial_prices: [1, 1]
 initial_actions: [-1, -1]
+# Inventory discretization: -1 = no discretization, 1 = full hiding, 2+ = n-level
+num_inventory_levels: -1
 which_price_grid: "constrained" # which equilibria is the price range's width based on? "unconstrained" or "constrained"
 competitive_action: # filled in main.py
 competitive_price: # filled in main.py
@@ -156,6 +158,7 @@ wandb:
 # ppo: num_epochs (try 5, 10, 20), num_minibatches (try 1, 5, 10, 20)
 gridsearch:
   # seed: [0, 2, 4, 6]
+  num_inventory_levels: [-1, 1, 2, 4, 8, 16]
   time_horizon: [20] # [5, 20, 50, 100, 200]
   # dqn_default:
     # target_update_interval_episodes: [100, 200]

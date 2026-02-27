@@ -105,13 +105,18 @@ class DQN:
             - t: t/time_horizon -> [0,1] or 1-t/time_horizon -> [1,0]
             """
             new_observation = observation.copy()
-            ## log-scale
-            # new_observation["inventories"] = jnp.log(observation["inventories"])
-
-            ## zero-one scale
-            new_observation["inventories"] = rescale_to_zero_one(
-                observation["inventories"], 0, obs_limits["inventory_uppers"]
-            )
+            inv_levels = obs_limits.get("inventory_discretization_levels", -1)
+            if inv_levels >= 1:
+                if inv_levels == 1:
+                    new_observation["inventories"] = jnp.zeros_like(observation["inventories"], dtype=jnp.float32)
+                else:
+                    new_observation["inventories"] = rescale_to_zero_one(
+                        observation["inventories"], 0, inv_levels - 1
+                    )
+            else:
+                new_observation["inventories"] = rescale_to_zero_one(
+                    observation["inventories"], 0, obs_limits["inventory_uppers"]
+                )
             new_observation["last_actions"] = rescale_to_zero_one(
                 observation["last_actions"], 0, obs_limits["last_actions_upper"]
             )
@@ -734,6 +739,7 @@ def make_DQN_agent(
         "last_prices_lower": args.get("possible_prices")[0],
         "last_prices_upper": args.get("possible_prices")[-1],
         "t_upper": args.get("time_horizon"),
+        "inventory_discretization_levels": args.get("num_inventory_levels", -1),
     }
 
     agent = DQN(

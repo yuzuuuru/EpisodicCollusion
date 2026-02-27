@@ -591,6 +591,46 @@ class NormalizeVecReward(GymnaxWrapper):
         return obs, state, reward / jnp.sqrt(state.var + 1e-8), done, info
 
 
+class InventoryDiscretizationWrapper(GymnaxWrapper):
+    """Discretizes inventory observations into n buckets while keeping true state unchanged.
+
+    Args:
+        env: The environment to wrap.
+        num_inventory_levels: Number of discrete buckets (n).
+            n=1 means full information hiding (always bucket 0).
+            n>=2 means n-level discretization.
+        initial_inventories: Array of max inventories per agent (used as inv_max).
+    """
+
+    def __init__(self, env, num_inventory_levels, initial_inventories):
+        super().__init__(env)
+        self.n = int(num_inventory_levels)
+        self.inv_max = jnp.array(initial_inventories, dtype=jnp.float32)
+
+    def _discretize_obs(self, obs):
+        new_obs = dict(obs)
+        inv = obs["inventories"].astype(jnp.float32)
+
+        if self.n <= 1:
+            bucket = jnp.zeros_like(inv, dtype=jnp.int32)
+        else:
+            bucket = jnp.floor(inv * (self.n - 1) / self.inv_max).astype(jnp.int32)
+            bucket = jnp.clip(bucket, 0, self.n - 1)
+
+        new_obs["inventories"] = bucket
+        return new_obs
+
+    def reset(self, key, params=None):
+        all_obs, state = self._env.reset(key, params)
+        all_obs = tuple(self._discretize_obs(o) for o in all_obs)
+        return all_obs, state
+
+    def step(self, key, state, action, params=None):
+        all_obs, state, rewards, done, info = self._env.step(key, state, action, params)
+        all_obs = tuple(self._discretize_obs(o) for o in all_obs)
+        return all_obs, state, rewards, done, info
+
+
 if __name__ == "__main__":
     # dummy observation in unbatched form. the batching will add 2 leading dimensions [n_opponents, n_envs] to everything
     dummy_obs = {
