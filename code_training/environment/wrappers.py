@@ -614,7 +614,7 @@ class InventoryDiscretizationWrapper(GymnaxWrapper):
         if self.n <= 1:
             bucket = jnp.zeros_like(inv, dtype=jnp.int32)
         else:
-            bucket = jnp.floor(inv * (self.n - 1) / self.inv_max).astype(jnp.int32)
+            bucket = jnp.floor(inv * self.n / (self.inv_max + 1.0)).astype(jnp.int32)
             bucket = jnp.clip(bucket, 0, self.n - 1)
 
         new_obs["inventories"] = bucket

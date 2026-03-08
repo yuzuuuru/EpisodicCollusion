@@ -108,9 +108,10 @@ class DQN:
             inv = observation["inventories"].astype(jnp.float32)
             inv_max = obs_limits["inventory_uppers"].astype(jnp.float32)
             inv_levels = obs_limits["inventory_discretization_levels"]
-            # Branch-free discretization: supports both concrete and traced inv_levels
-            n_minus_1 = jnp.maximum(inv_levels - 1, 1).astype(jnp.float32)
-            bucket = jnp.floor(inv * n_minus_1 / inv_max)
+            # Branch-free uniform discretization: floor(inv * n / (inv_max + 1))
+            n_float = jnp.maximum(inv_levels, 2).astype(jnp.float32)
+            n_minus_1 = n_float - 1.0
+            bucket = jnp.floor(inv * n_float / (inv_max + 1.0))
             bucket = jnp.clip(bucket, 0.0, n_minus_1)
             discretized_rescaled = bucket / n_minus_1
             raw_rescaled = inv / inv_max
