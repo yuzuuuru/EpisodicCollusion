@@ -87,17 +87,16 @@ class PPO:
             new_observation = observation.copy()
             inv = observation["inventories"].astype(jnp.float32)
             inv_max = obs_limits["inventory_uppers"].astype(jnp.float32)
-            inv_levels = obs_limits["inventory_discretization_levels"]
-            # Branch-free uniform discretization: floor(inv * n / (inv_max + 1))
-            n_float = jnp.maximum(inv_levels, 2).astype(jnp.float32)
-            n_minus_1 = n_float - 1.0
-            bucket = jnp.floor(inv * n_float / (inv_max + 1.0))
-            bucket = jnp.clip(bucket, 0.0, n_minus_1)
+            num_states = obs_limits["inventory_num_states"]
+            boundaries = obs_limits["inventory_boundaries"]
+            # Branch-free boundary-based discretization using searchsorted
+            bucket = jnp.searchsorted(boundaries, inv).astype(jnp.float32)
+            n_minus_1 = jnp.maximum(num_states - 1, 1).astype(jnp.float32)
             discretized_rescaled = bucket / n_minus_1
             raw_rescaled = inv / inv_max
             new_observation["inventories"] = jnp.where(
-                inv_levels >= 2, discretized_rescaled,
-                jnp.where(inv_levels == 1, jnp.zeros_like(inv), raw_rescaled)
+                num_states >= 2, discretized_rescaled,
+                jnp.where(num_states == 1, jnp.zeros_like(inv), raw_rescaled)
             )
             new_observation["last_actions"] = rescale_to_zero_one(
                 observation["last_actions"], 0, obs_limits["last_actions_upper"]
@@ -706,14 +705,23 @@ def make_agent(
     random_key = jax.random.PRNGKey(seed=seed)
 
     # MarketEnv specific:
-    _n = args.get("num_inventory_levels", -1)
+    _boundaries = args.get("inventory_boundaries")
+    _num_states = args.get("inventory_num_states")
+    if _boundaries is None:
+        # Backward compatibility: resolve from num_inventory_levels
+        from discretization_schemes import resolve_scheme
+        _n = args.get("num_inventory_levels", -1)
+        _n = _n if _n is not None else -1
+        inv_max = float(args.get("initial_inventories")[0])
+        _boundaries, _num_states, _ = resolve_scheme(int(_n), inv_max)
     obs_limits = {
         "inventory_uppers": jnp.array(args.get("initial_inventories")),
         "last_actions_upper": args.get("num_prices"),
         "last_prices_lower": args.get("possible_prices")[0],
         "last_prices_upper": args.get("possible_prices")[-1],
         "t_upper": args.get("time_horizon"),
-        "inventory_discretization_levels": _n if _n is not None else -1,
+        "inventory_boundaries": jnp.array(_boundaries, dtype=jnp.float32),
+        "inventory_num_states": jnp.array(_num_states, dtype=jnp.int32),
     }
 
     agent = PPO(

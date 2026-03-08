@@ -449,6 +449,37 @@ def main(args):
     # load the update dict
     update_dict = omegaconf.OmegaConf.to_container(args.gridsearch)
 
+    # Resolve inventory discretization schemes into lookup tables
+    inv_max = float(args.initial_inventories[0]) * args.time_horizon
+    _has_inv_schemes = ("num_inventory_levels" in update_dict
+                        and update_dict["num_inventory_levels"] is not None)
+    if _has_inv_schemes:
+        from discretization_schemes import resolve_scheme, pad_boundaries_list, describe_mapping
+        specs = update_dict["num_inventory_levels"]
+        all_boundaries, all_num_states, all_descs = [], [], []
+        print("=== Inventory Discretization Schemes ===")
+        for spec in specs:
+            boundaries, num_states, desc = resolve_scheme(spec, inv_max)
+            all_boundaries.append(boundaries)
+            all_num_states.append(num_states)
+            all_descs.append(desc)
+            print(f"  spec={spec} → {desc}")
+            mapping = describe_mapping(boundaries, num_states, inv_max)
+            for line in mapping.split("\n")[:5]:
+                print(f"    {line}")
+            if num_states > 5:
+                print(f"    ... ({num_states} states total)")
+        # Create padded lookup table stored in args (shared across all vmap instances)
+        pad_val = inv_max + 1.0
+        padded = pad_boundaries_list(all_boundaries, pad_val)
+        # Store these in a form that survives OmegaConf → dict conversion
+        # They will be injected into args after it's converted to a plain dict (below)
+        _inv_boundaries_table = padded  # ndarray (num_schemes, max_boundaries)
+        _inv_num_states_table = all_num_states  # list of ints
+        _inv_specs = specs  # original specs for logging
+        print(f"  Padded boundaries shape: {padded.shape}")
+        print("=" * 40)
+
     doing_gridsearch = (
         any(leaf is not None for leaf in jax.tree_util.tree_leaves(update_dict))
         or args.get("num_seeds") > 1
@@ -474,6 +505,12 @@ def main(args):
     # args must be a regular dict if it's to be updated within vmap scope
     args = omegaconf.OmegaConf.to_container(args, resolve=True)
 
+    # Inject inventory discretization lookup tables into args (shared across vmap instances)
+    if _has_inv_schemes:
+        args["_inv_boundaries_table"] = _inv_boundaries_table.tolist()
+        args["_inv_num_states_table"] = _inv_num_states_table
+        args["_inv_levels_list"] = [int(s) for s in _inv_specs]
+
     # dump the args to a file in the save_dir
     args_path = os.path.join(save_dir, "args.pkl")
     with open(args_path, "wb") as f:
@@ -492,6 +529,15 @@ def main(args):
         # would need to first do args_exp_jax = jax.tree.map(jnp.array, args_exp)
         # and update_dict_jax = jax.tree.map(lambda x: jnp.array(x) if x is not None else None, update)
         args_exp = update_dict_recursively(args_exp, update_dict)
+        # Look up pre-computed boundaries using traced num_inventory_levels
+        if "_inv_boundaries_table" in args_exp:
+            n_val = args_exp["num_inventory_levels"]
+            levels_arr = jnp.array(args_exp["_inv_levels_list"])
+            idx = jnp.argmin(jnp.abs(levels_arr - n_val))
+            boundaries_table = jnp.array(args_exp["_inv_boundaries_table"])
+            args_exp["inventory_boundaries"] = boundaries_table[idx]
+            num_states_arr = jnp.array(args_exp["_inv_num_states_table"])
+            args_exp["inventory_num_states"] = num_states_arr[idx]
         args_exp["seed"] = seed  # works unless JITted
         args_exp["dqn_default"]["epsilon_anneal_time"] = int(
             args_exp["dqn_default"]["epsilon_anneal_duration"]

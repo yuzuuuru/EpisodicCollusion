@@ -592,26 +592,43 @@ class NormalizeVecReward(GymnaxWrapper):
 
 
 class InventoryDiscretizationWrapper(GymnaxWrapper):
-    """Discretizes inventory observations into n buckets while keeping true state unchanged.
+    """Discretizes inventory observations using boundary-based or uniform bucketing.
 
     Args:
         env: The environment to wrap.
-        num_inventory_levels: Number of discrete buckets (n).
+        num_inventory_levels: Number of discrete buckets (n) for uniform mode.
             n=1 means full information hiding (always bucket 0).
             n>=2 means n-level discretization.
         initial_inventories: Array of max inventories per agent (used as inv_max).
+        boundaries: Optional sorted array of boundary thresholds. If provided,
+            uses searchsorted-based discretization instead of uniform formula.
     """
 
-    def __init__(self, env, num_inventory_levels, initial_inventories):
+    def __init__(self, env, num_inventory_levels, initial_inventories, boundaries=None):
         super().__init__(env)
-        self.n = int(num_inventory_levels)
         self.inv_max = jnp.array(initial_inventories, dtype=jnp.float32)
+        if boundaries is not None:
+            self.boundaries = jnp.array(boundaries, dtype=jnp.float32)
+            self.n = len(boundaries) + 1
+        else:
+            self.n = int(num_inventory_levels)
+            # Generate uniform boundaries
+            if self.n >= 2:
+                inv_m = float(self.inv_max[0])
+                self.boundaries = jnp.array(
+                    [(inv_m + 1.0) * k / self.n for k in range(1, self.n)],
+                    dtype=jnp.float32,
+                )
+            else:
+                self.boundaries = None
 
     def _discretize_obs(self, obs):
         new_obs = dict(obs)
         inv = obs["inventories"].astype(jnp.float32)
 
-        if self.n <= 1:
+        if self.boundaries is not None and self.n >= 2:
+            bucket = jnp.searchsorted(self.boundaries, inv).astype(jnp.int32)
+        elif self.n <= 1:
             bucket = jnp.zeros_like(inv, dtype=jnp.int32)
         else:
             bucket = jnp.floor(inv * self.n / (self.inv_max + 1.0)).astype(jnp.int32)
