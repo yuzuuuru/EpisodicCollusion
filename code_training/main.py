@@ -450,7 +450,7 @@ def main(args):
     update_dict = omegaconf.OmegaConf.to_container(args.gridsearch)
 
     # Resolve inventory discretization schemes into lookup tables
-    inv_max = float(args.initial_inventories[0]) * args.time_horizon
+    inv_max = float(args.initial_inventories[0])
     _has_inv_schemes = ("num_inventory_levels" in update_dict
                         and update_dict["num_inventory_levels"] is not None)
     if _has_inv_schemes:
