@@ -49,7 +49,15 @@ demand_scaling_factor: 1000
 initial_inventories: [440, 440] # this is per single timestep! automatically scaled to time horizon. coll: 365, monop: 470. good value between: 420.
 initial_prices: [1, 1]
 initial_actions: [-1, -1]
-# Inventory discretization: -1 = no discretization, 1 = full hiding, 2+ = n-level
+# Inventory discretization: controls how inventory observations are shown to agents.
+# Accepts integer specs (gridsearch-compatible) or string/dict specs (CLI override).
+#   -1 or "continuous" : no discretization (continuous inventory values)
+#   1                   : full hiding (all inventories → state 0)
+#   N >= 2              : N uniform equal-width buckets (via searchsorted)
+#   "stockout"          : 2 states — out-of-stock (inv=0) vs in-stock (inv≥1)
+#   "low_stock-K"       : K+1 states — 0..K-1 individually, K+ lumped together
+#   {"boundaries": [...], "description": "..."} : custom boundary array
+# Boundaries are resolved at experiment start; mapping logged and saved in args.pkl.
 num_inventory_levels: -1
 which_price_grid: "constrained" # which equilibria is the price range's width based on? "unconstrained" or "constrained"
 competitive_action: # filled in main.py
@@ -158,7 +166,11 @@ wandb:
 # ppo: num_epochs (try 5, 10, 20), num_minibatches (try 1, 5, 10, 20)
 gridsearch:
   # seed: [0, 2, 4, 6]
+  # Integer specs for uniform discretization (gridsearch-compatible):
   num_inventory_levels: [-1, 1, 2, 4, 8, 16]
+  # Non-uniform schemes can be used via CLI override, e.g.:
+  #   gridsearch.num_inventory_levels='[-1, 2, 16, 440]'      # uniform buckets
+  # String/dict specs not yet supported in YAML gridsearch lists (use CLI).
   time_horizon: [20] # [5, 20, 50, 100, 200]
   # dqn_default:
     # target_update_interval_episodes: [100, 200]

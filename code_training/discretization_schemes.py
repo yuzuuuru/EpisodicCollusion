@@ -10,11 +10,31 @@ The core idea:
   This produces k+1 discrete states: [0, b0), [b0, b1), ..., [b_{k-1}, ∞).
 
 Built-in schemes:
-  - "continuous"  : No discretization (pass-through)
-  - "uniform-N"   : N equal-width buckets (e.g. "uniform-16")
-  - "stockout"    : 2 states: {0} vs {1..max} (boundary at 0.5)
-  - "low_stock-K" : K+1 states: 0,1,...,K-1 individually, K+ lumped (K boundaries)
-  - custom dict   : {"boundaries": [b0, b1, ...], "description": "..."}
+  - "continuous" / -1 : No discretization (pass-through)
+  - int N >= 1        : N uniform equal-width buckets (shorthand for "uniform-N")
+  - "uniform-N"       : N equal-width buckets (e.g. "uniform-16")
+  - "stockout"        : 2 states: {0} vs {1..max} (boundary at 0.5)
+  - "low_stock-K"     : K+1 states: 0,1,...,K-1 individually, K+ lumped (K boundaries)
+  - custom dict       : {"boundaries": [b0, b1, ...], "description": "..."}
+
+Usage examples:
+  >>> from discretization_schemes import resolve_scheme, describe_mapping
+  >>> # Uniform 2-bucket
+  >>> b, n, d = resolve_scheme(2, 8800.0)
+  >>> print(d)  # "uniform-2: 2 buckets of ~4400 values each"
+  >>> # Stockout only
+  >>> b, n, d = resolve_scheme("stockout", 8800.0)
+  >>> # Low stock with individual states for inv 0-9
+  >>> b, n, d = resolve_scheme("low_stock-10", 8800.0)
+  >>> # Custom boundaries
+  >>> b, n, d = resolve_scheme({"boundaries": [0.5, 10.5, 100.5]}, 8800.0)
+  >>> print(describe_mapping(b, n, 8800.0))
+
+Gridsearch integration:
+  In config YAML or CLI, use integer specs in gridsearch.num_inventory_levels:
+    gridsearch.num_inventory_levels='[-1, 1, 2, 16, 440]'
+  These are resolved to boundaries before vmap. The boundaries lookup table
+  is stored in args.pkl alongside the experiment for full reproducibility.
 
 All boundary arrays are expressed in terms of the raw integer inventory
 (0..inv_max). They are resolved at experiment start time and saved in
