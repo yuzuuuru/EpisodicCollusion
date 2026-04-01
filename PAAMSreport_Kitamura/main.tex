@@ -1,0 +1,400 @@
+% 英文校正から返ってきたもの(をさらに自力で修正したもの)
+% (をさらに先生に見ていただいたもの)(をさらに少し修正したもの)
+% (の査読通過後に修正したもの)
+
+%
+\documentclass[runningheads]{llncs}
+%
+\usepackage{iftex}
+\ifLuaTeX
+  \usepackage{fontspec}
+  \usepackage{luatexja}
+  \usepackage{luatexja-fontspec}
+  \setmainjfont{HaranoAjiMincho}
+  \setsansjfont{HaranoAjiGothic}
+\else
+  \usepackage[T1]{fontenc}
+\fi
+% T1 fonts will be used to generate the final print and online PDFs,
+% so please use T1 fonts in your manuscript whenever possible.
+% Other font encondings may result in incorrect characters.
+%
+\usepackage{graphicx}
+\graphicspath{{image/}{../jsaiac_tex_ja_utf8lf-2026_喜多村/image/}{../jsaiac_tex_ja_utf8lf-2026_喜多村/image/PPO-exponential/}}
+% Used for displaying a sample figure. If possible, figure files should
+% be included in EPS format.
+%
+% If you use the hyperref package, please uncomment the following two lines
+% to display URLs in blue roman font according to Springer's eBook style:
+%\usepackage{color}
+%\renewcommand\UrlFont{\color{blue}\rmfamily}
+%\urlstyle{rm}
+%
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=false, 
+    hidelinks         
+}
+\begin{document}
+%
+%
+\title{Algorithmic Collusion in Inventory-Constrained Markets under Time-Varying Demand Scale}
+%
+\titlerunning{Algorithmic Collusion under Time-Varying Market}
+% If the paper title is too long for the running head, you can set
+% an abbreviated paper title here
+%
+\author{Yuzuru Kitamura\and
+Katsuhide Fujita\orcidID{0000-0001-7867-4281}}
+%
+\authorrunning{Y. Kitamura and K. Fujita}
+% First names are abbreviated in the running head.
+% If there are more than two authors, 'et al.' is used.
+%
+\institute{Faculty of Engineering, Tokyo University of Agriculture and Technology, Japan
+\email{\{kitamura,fujita\}@katfuji.lab.tuat.ac.jp}}
+%\url{https://katfuji.lab.tuat.ac.jp/}}
+\maketitle              % typeset the header of the contribution
+
+% erase page number
+\thispagestyle{empty} % 1ページ目のページ番号を消去
+\pagestyle{empty}  
+
+%
+\begin{abstract}
+近年，製品やサービスの価格設定に能動的に価格戦略を学習するエージェントの導入が進んでいる．こうしたエージェントの自律性により，競合企業間で明示的なコミュニケーションを行うことなく価格が引き上げられる現象，いわゆるアルゴリズム共謀がシミュレーション実験により確認されている．従来の在庫制約を伴う価格競争市場を対象とした研究では，顧客数や需要のスケールを表す市場規模が時間的に一定であると仮定されてきた．本研究では，より現実的な設定として，市場規模が時間とともに変動する市場環境を導入しアルゴリズム共謀に与える影響を検証することを目的とする．強化学習アルゴリズムの一種であるPPOを適用した実験において，市場規模が変化する局面では，市場規模の変化速度と共謀指数との間に負の相関が観測された．この結果は，予約市場において時間ごとの需要の平準化を図る施策が，状況によってはアルゴリズム共謀を助長する可能性を示唆している．
+
+\keywords{アルゴリズム共謀 \and 強化学習 \and 在庫制約市場 \and 市場規模変動 \and PPO}
+% keywords{First keyword  \and Second keyword \and Another keyword.}
+\end{abstract}
+%
+%
+\section{はじめに}
+近年，企業が製品・サービスの価格設定にアルゴリズムを用いる事例が増加している\cite{Chen2016}．
+eコマースの拡大やデータ処理基盤の高度化を背景に，価格を需要や在庫状況に応じて機動的に調整する動的価格付けの重要性は高まっている．
+このとき，人手で設計した固定的な価格ルールのみで環境変化へ即応することは難しく，機械学習を用いてデータ駆動的に価格戦略を最適化するアプローチが注目されている．
+
+一方で，学習アルゴリズムの自律性は，競合企業間に明示的なコミュニケーションが存在しない場合であっても，
+結果として価格の引き上げが維持されるような振る舞い（アルゴリズムによる暗黙的共謀）を生じ得るとの懸念を伴う\cite{mehra2016}．
+この種の現象は，消費者厚生の低下や市場効率性の損失につながり得るだけでなく，
+伝統的な競争政策が想定してきた「合意」や「意思連絡」の立証が困難である点で，執行上の課題を提起する\cite{harrington2019}．
+以上の背景から，アルゴリズムが競争環境下でどのような条件のもと共謀的結果へ収束するのかを明らかにすることは，学術的・社会的に重要である．
+
+例えば，Calvanoら\cite{calvano2020b}は反復ベルトラン競争における強化学習エージェントを分析し，
+単なる高価格化にとどまらず，逸脱に対する報酬・懲罰構造を伴う協調的行動が内生的に形成され得ることを示し，
+% この知見は，プラットフォーム設計や規制設計への含意を持ち，たとえば
+消費者とプラットフォーマーの厚生の観点から制度設計を検討する研究などへと発展している\cite{johnson2020}．
+
+特にFriedrichらは，在庫制約を伴う有限期間（エピソディック）市場を対象に，エージェント同士が反復的に学習することで共謀的な価格形成が生じ得ることを示した\cite{friedrich2025learning}．同研究を含む多くの設定では，需要のスケールを表す市場規模が期間を通じて一定と仮定されている．しかし，現実の予約市場では市場規模（需要）は時間とともに変動する．例えば，航空市場では季節性による需要変動，ホテル市場ではイベント開催時期による需要の急増・急減などが観察される．このような市場規模の動的変化は，企業の最適価格設定戦略，および暗黙的共謀の維持メカニズムに重大な影響を及ぼす可能性がある．
+
+本研究は，先行研究のエピソディック・在庫制約モデルを拡張し，市場規模係数$\lambda$を時間の関数として導入することで，より現実的な予約市場環境を設定し，結果を観察した．特に，本研究の主要な結果として，強化学習アルゴリズムの一種であるPPOを適用した際に，市場規模が一定の場合と比べて，市場規模が時間変動する場合には共謀指数が低い水準に留まることを確認した．具体的には，固定$\lambda$環境では共謀指数が約0.41に達した一方で，時間変動$\lambda$（指数増加パターン）の環境では0.21程度に留まった．また，市場規模スケジュールを複数用意して比較した結果，市場規模の変化が急であるほど共謀指数の収束水準が低くなる傾向（負の相関）が観測された．これらの結果は，需要が非定常に変動する予約市場において，需給の時間的な平準化施策が学習エージェントの価格形成と共謀の成立に影響し得ることを示唆する．
+
+% 本論文の構成は以下の通りである．まず第2節で関連研究を概観し，第3節で在庫制約つきエピソディック市場の問題設定を与える．第4節で市場規模係数を時変化させた環境設定を述べ，第5節で固定市場規模と時変市場規模における学習結果と比較・分析を示す．最後に第6節で結論と今後の課題を述べる．
+
+
+\section{関連研究}
+
+\subsection{強化学習による価格競争と暗黙的共謀}
+Q学習による価格設定が，企業間の明示的なコミュニケーションなしに高価格を維持する「暗黙的共謀（tacit collusion）」へと収束し得ることが示されている\cite{calvano2020b}．価格競争モデルには非エピソードの反復ベルトラン競争\cite{Farrell2000}が使用された．また，既存研究の実験では100,000期間など一定の制限を設ける場合が多いが，本研究の期間は無期限に設定されている．
+
+反復ベルトラン競争では次の仮定が置かれている．
+\begin{itemize}
+   \item 各企業 \(i\)（\(i = 1, 2, ..., n\)）は独立した価格設定アルゴリズムを使用する．
+   \item 各企業は品質 \(g_i\) と限界費用 \(c_i\) を持つ単一の製品を生産する．
+   \item 固定費用は無いとする．
+\end{itemize}
+ただし，限界費用は製品の生産量に応じて変動する費用のことを指し，固定費用は製品の生産量によらない費用のことである．
+この研究と同様の設定は多くの研究で用いられている．例えばHettichら\cite{hettich2021}はDQN\cite{mnih2015}を用いて少ないメモリ空間で効率的な学習が可能であることを実証した．また，PPO\cite{schulman2017proximal}を用いた場合にも暗黙的共謀が起こることが示されている\cite{Schlechtinger2024}．
+
+\subsection{エピソディック・在庫制約市場での共謀学習}
+現実の多くの市場は有限期間で区切られ，かつ在庫（供給）制約を伴う．例えば航空券やホテル，期限のある商品では，販売期間（エピソード）の終了とともに販売機会が消失し，さらに各企業は有限の供給量のもとで収益最大化を行う必要がある．このような有限期間設定では，エピソード終盤になるほど懲罰の信用性が低下するため，逆向き帰納法に基づけば共謀は理論的に成立しないという見方がある．それにもかかわらず，学習アルゴリズムは同一の相手と複数エピソードにわたり反復的に相互作用することで，実験的には共謀的行動を獲得し得ることが示された\cite{friedrich2025learning}．同研究では在庫制約つきの有限期間価格競争を，有限期間マルコフゲームとして定式化し，エージェントの暗黙的共謀を分析した．各時刻で企業は価格を同時に選択し，需要に応じて販売が発生し，在庫が更新される．
+
+\subsection{予約市場における予約曲線の指数的性質}
+Shintaniら\cite{ShintaniUmeno2023ABCDEF}は，ホテルおよびレンタカー業界の実予約データを用いて，予約市場における平均予約曲線の時間構造を分析している．ここで平均予約曲線とは，締切日までの残り時間$t$に対する累積予約数を，複数日の予約曲線について平均したものである．著者らは，この平均予約曲線が$E[X(t)] \simeq A\exp(-\beta t)$という指数関数で近似できることを示し，これをABCDEF（Average Booking Curves Draw Exponential Functions）lawと呼んでいる．
+
+さらに同研究では，この指数的形状が複数の施設や異なる経済環境（COVID-19前後）においても広く観測されることを実証し，予約行動の時間的分布が環境に応じて変化しつつも，指数関数という単純な形で記述可能であることを明らかにしている．指数パラメータ$\beta$は予約の進行速度を表し，予約が早期に集中する環境ほど大きく，直前予約が多い環境ほど小さくなることが報告されている．
+
+この結果は，予約市場において需要の到着が時間的に非一様であり，締切に向かって加速または減速する構造を持つことを示唆している．この知見は予約市場を扱うシミュレーションや動的価格設定モデルにおける需要の時間構造を考える上で重要である．
+
+
+\section{問題設定}
+\label{sec:problem_statement}
+
+Friedrichら\cite{friedrich2025learning}の設定に基づき，在庫制約つきの有限期間（エピソディック）市場における価格競争を定式化する．
+
+\subsection{エピソディックマルコフゲームとしての定式化}
+市場での相互作用を，長さ$T$のエピソード（販売期間）からなる多エージェント意思決定問題として表す．
+エピソード内の各時刻$t=1,\dots,T$で，企業（エージェント）は同時に価格を選び，その結果に応じて需要・販売・在庫が更新され，利潤が報酬として与えられる．
+
+以下ではこの状況を，エピソディックマルコフゲームとして
+$(\mathcal{S}, \mathcal{A}, P, \{R_i\}_{i=1}^N, T)$
+で表す（$N$は企業数）．
+ここで$\mathcal{S}$は状態空間，$\mathcal{A}=\mathcal{A}_1\times\cdots\times\mathcal{A}_N$は同時行動（価格）の直積空間，
+$P$は状態遷移，$R_i$は企業$i$の報酬（利潤）である．
+企業$i$は時刻$t$ごとに状態を観測し，方策$\pi_{i,t}$に従って価格（行動）を選ぶ．
+
+\subsection{市場モデル：価格，販売，在庫，報酬}
+企業$i\in\{1,\dots,N\}$は，各時刻$t$に価格$p_{i,t}\ge 0$を同時に提示する．
+各企業にはエピソード全体で販売できる最大数量（初期在庫）$I_i\in\mathbb{N}$があり，時刻$t$での在庫残量を$I_{i,t}\in\{0,1,\dots,I_i\}$とする．
+価格ベクトルを$p_t=(p_{1,t},\dots,p_{N,t})$，在庫ベクトルを$I_t=(I_{1,t},\dots,I_{N,t})$と書く．
+
+状態は「直前の価格」と「現在の在庫」で表す．
+\begin{equation}
+s_t = (p_{t-1}, I_t)
+\label{eq:state_definition}
+\end{equation}
+これは，直前の価格が競争・協調いずれの戦略にとっても重要な情報となり得ることを踏まえた選択である．
+ただし$t=1$では$p_0$を初期価格ベクトルとして外生的に与える．
+
+各時刻で価格が決まると，需要が発生し，販売量が在庫で上限制約される．
+販売量を$x_{i,t}$，需要量（在庫制約をかける前の整数需要）を$d_{i,t}$として，
+\begin{equation}
+x_{i,t}=\min\{d_{i,t}, I_{i,t}\},
+\qquad
+I_{i,t+1}=I_{i,t}-x_{i,t}
+\label{eq:inventory_update}
+\end{equation}
+により在庫が更新される．なお，同論文の需要モデルでは，この更新を含む状態遷移が決定的（deterministic）になるとしている．
+
+各企業の報酬（利潤）は，単位費用$c_i$を用いて
+\begin{equation}
+R_{i,t} = (p_{i,t}-c_i)\,x_{i,t}
+\label{eq:profit_reward}
+\end{equation}
+と定義される．
+以上の一連の流れ（各時刻における価格提示$\rightarrow$需要発生$\rightarrow$在庫制約下での販売$\rightarrow$在庫更新$\rightarrow$利潤獲得）を図\ref{fig:episodic_collusion_model}に示す．
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.9\linewidth]{episodiccollusionmodel.png}
+\caption{エピソディック在庫制約市場における相互作用の概要：企業は各時刻に価格を同時に選択し，需要が発生した後，在庫制約の下で販売量が決まり，在庫と利潤が更新される\cite{friedrich2025learning}}
+\label{fig:episodic_collusion_model}
+\end{figure}
+
+\subsection{需要モデル：修正MNLと需要代替}
+需要は，多項ロジット（MNL）型の選択モデルを用いて表す（Friedrichら，2025）．
+直観的には，各企業の「魅力度」を（品質$q_i$と価格$p_{i,t}$から）$\exp((q_i-p_{i,t})/\mu)$で与え，その相対比として需要が分配される．
+$\mu>0$は水平差別化の強さ（価格差への感度のスケール）を表すパラメータである．
+
+outside option（購入しない選択肢）を含め，かつ売り切れ企業への需要を他社に代替させる（choice substitution / demand adaptation）ために，
+在庫が残っている企業の集合
+\begin{equation}
+\mathcal{N}_t^{a}:=\{\,j\in\{1,\dots,N\}\mid I_{j,t}>0\,\}
+\label{eq:available_set}
+\end{equation}
+のみを分母に含める．
+このとき企業$i$の需要シェア（正規化需要）$s_{i,t}\in(0,1)$を
+\begin{equation}
+s_{i,t}
+=
+\frac{
+\exp\!\left(\frac{q_i - p_{i,t}}{\mu}\right)
+}{
+\exp\!\left(\frac{q_0}{\mu}\right) + \sum_{j\in\mathcal{N}_t^{a}}\exp\!\left(\frac{q_j - p_{j,t}}{\mu}\right)
+}
+\label{eq:mnl_share}
+\end{equation}
+と定義する．ここで$q_0$はoutside optionの品質（垂直差別化）である．
+
+需要規模（市場の大きさ）を表すスケール係数を$\lambda\in\mathbb{N}$として，整数の需要量は
+\begin{equation}
+d_{i,t}=\left\lfloor \lambda\, s_{i,t} \right\rfloor
+\label{eq:scaled_demand_const}
+\end{equation}
+で与えられる．
+式\eqref{eq:inventory_update}により，実際の販売量は在庫残量によって制限される．
+
+上式より，需要は需要シェア$s_{i,t}$に比例して決まり，$s_{i,t}$は価格$p_{i,t}$が高いほど小さくなる．
+
+\subsection{競争・共謀の基準と共謀指数}
+観測されたエピソード（あるいは方策）が「競争的」か「共謀的」かを定量化するため，
+基準としてナッシュ均衡（competitive / Nash equilibrium）と独占最適（collusive / monopolistic optimum）を行動空間上で定義する．
+さらに，競争水準からどれだけ価格が上昇しているかを測るため，0から1の範囲で共謀指数を定義する．
+
+具体的には，企業$i$のエピソード利得（episodic profit gain）を
+\begin{equation}
+\Delta_{i,e}
+:=
+\frac{1}{T}\sum_{t=1}^{T}
+\frac{\bar{R}_{i,t}-R^N_{i,t}}{R^M_{i,t}-R^N_{i,t}}
+\label{eq:episodic_profit_gain}
+\end{equation}
+と定義する．
+ここで$\bar{R}_{i,t}$は観測された（実現した）利潤，$R^N_{i,t}$と$R^M_{i,t}$はそれぞれナッシュ均衡（競争）および独占最適（共謀）を基準にした利潤である．本稿では観測された実現値をバー付きで表す．
+この$\Delta_{i,e}$を企業間で集約し，エピソード共謀指数$\Delta_e$を一般化平均（generalized mean）
+\begin{equation}
+\Delta_{e}
+:=
+\left(\frac{1}{N}\sum_{i=1}^{N}\Delta_{i,e}^{\gamma}\right)^{1/\gamma}
+\label{eq:collusion_index}
+\end{equation}
+で定める．
+実験では$\gamma=0.5$を用い，単純平均よりも一方的な逸脱（片方だけが競争的行動を取る状況）を強く検出する性質を持たせている．
+
+% chapter 3
+% ここにあった実験設定Settings of experimentはsection 5に移動しました
+
+% chapter 4
+\section{実験設計}
+\label{sec:method_timevarying_lambda}
+
+\subsection{需要規模係数の時間関数化}
+先行研究\cite{friedrich2025learning}では需要規模係数$\lambda$はエピソードを通じて一定である．
+本研究では$\lambda$を時刻$t$に依存する$\lambda_t$へ拡張し，エピソード内で需要水準が変動する状況を表現する．なお，本研究では$\lambda_t>0$は実数として扱い（整数に限らない），需要量は床関数により整数化される．
+このとき，需要量は式\eqref{eq:scaled_demand_const}の$\lambda$を$\lambda_t$に置き換え
+\begin{equation}
+d_{i,t}=\left\lfloor \lambda_t\, s_{i,t} \right\rfloor
+\label{eq:scaled_demand}
+\end{equation}
+とする．
+販売量と在庫更新は式\eqref{eq:inventory_update}に従う．
+
+\subsection{市場規模シナリオ設計}
+需要規模係数$\lambda_t$は，ABCDEF則\cite{ShintaniUmeno2023ABCDEF}を反映した予約市場における需要傾向を表現するため，
+本研究では指数関数として次式で与える．
+\begin{equation}
+\lambda_t = a\exp(b(t-1))
+\label{eq:lambda_exp}
+\end{equation}
+
+ここで，$a>0$は初期需要規模，$b\in\mathbb{R}$は増加速度を表すパラメータである．
+$a=1000, b=0$とすれば，先行研究と同様に一定需要$\lambda_t=1000$の環境となる．
+$b>0$とすれば需要が時間とともに増加し，$b<0$とすれば需要が減少する．
+実験を20ステップで固定する場合，$a=1000, b=0$のときの合計需要量は$\sum_{t=1}^{20} 1000 = 20000$である．これと同じ合計需要量を持つように，$a$と$b$の組み合わせを調整することで，需要の時間的な変化が価格戦略に与える影響を公平に比較できる．このとき，$a$と$b$の関係は以下の式で表される．
+\begin{equation}
+\sum_{t=1}^{20} a\exp(b(t-1)) = 20000
+\label{eq:lambda_sum_constraint}
+\end{equation}
+したがって，$a$の値を決定すると$b$の値が一意に定まる．この関係を利用して，需要の増加・減少シナリオを設計する．
+この条件を元に，図\ref{fig:visualize_demand_curve}に示す7つの$a$の値を用いて，需要が増加・減少するシナリオを設計し，価格戦略の学習挙動を比較する．
+図\ref{fig:visualize_demand_curve}は，合計需要量$\sum_{t=1}^{20}\lambda_t=20000$を保ったまま初期需要規模$a$を変えたときの市場規模スケジュール$\{\lambda_t\}$を可視化したものである．$a$が小さいほど後半に需要が集中する増加シナリオ（$b>0$）となり，逆に$a$が大きいほど前半に需要が集中する減少シナリオ（$b<0$）となる．$a=1000$のときは$b=0$となり一定需要となる．
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{visualize_demand_curve.png}
+    \caption{指数トレンド$\lambda_t=a\exp(b(t-1))$の例（$\sum_{t=1}^{20}\lambda_t=20000$を満たすように$b$を調整）}
+    \label{fig:visualize_demand_curve}
+\end{figure}
+
+本研究では$\lambda_t$はエージェントに直接観測されない（未知）とし，
+エージェントは時刻$t$や観測された結果（販売・在庫等）から需要水準を暗黙に推定しつつ学習する．
+この仮定は，現実の予約市場において需要水準が外生的に変動し，かつ完全には観測できない状況を反映する．
+
+
+\section{実験結果}
+
+市場規模係数$\lambda$が固定の場合と時間変動する場合において，DQNおよびPPOアルゴリズムがどのような価格戦略を学習するかを実証的に検証する．
+
+\subsection{実験設定}
+
+2企業による価格競争を，各エピソード20ステップ（$t=1, 2, \ldots, 20$）にわたってシミュレートした．各企業はDQNまたはPPOアルゴリズムにより価格戦略を学習した．なお、使用した市場パラメータおよび強化学習のハイパーパラメータは、\cite{friedrich2025learning}に準拠している．
+
+\subsection{DQNによる学習結果}
+
+\subsubsection{λ固定環境における学習}
+
+図\ref{fig:dqn_fixed}は，市場規模係数が固定された環境における学習の推移を示している．上段のグラフは各エピソードにおける平均行動（価格レベル）を示し，下段は共謀指数の推移を示す．
+
+学習初期（約10,000エピソードまで）において，両エージェントは探索的な行動を示し，価格および共謀指数は大きく変動する．その後，学習の進行とともに価格は徐々に安定し，最終的に両エージェントは平均的に約6前後の行動に収束した．共謀指数は学習後半において約0.28で安定し，これは完全競争（0）と完全共謀（1）の中間的な水準である．この値は先行研究（Friedrich et al., 2025）における固定$\lambda$環境の結果と整合的である．
+
+図中の緑色破線は完全共謀価格，赤色破線は競争的ナッシュ均衡価格を示しており，学習された戦略は両者の中間に位置することが確認される．
+
+\subsubsection{λ変動環境における学習}
+
+図\ref{fig:dqn_varying}は，市場規模係数が式\eqref{eq:lambda_exp}に従って時間的に指数増加する環境の学習結果を示している．具体的には，$a=400$として，$t=1$で$\lambda_1=400$，$t=20$で$\lambda_{20}=1984$となるように設定した．変動条件においても，学習の全体的なパターンは固定条件と類似している．学習初期の探索期間を経て，両エージェントの価格は約6に収束し，共謀指数は0.28前後で安定した．
+
+\begin{figure}[tb]
+\centering
+\begin{minipage}[t]{0.45\textwidth}
+\centering
+\includegraphics[width=\textwidth]{fig2_DQN-50000-fixed_training.png}
+\caption{固定$\lambda$環境での学習推移（DQN）}
+\label{fig:dqn_fixed}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.45\textwidth}
+\centering
+\includegraphics[width=\textwidth]{fig2_DQN-50000-exponential-400_1984.524399_training.png}
+\caption{変動$\lambda$環境での学習推移（DQN）}
+\label{fig:dqn_varying}
+\end{minipage}
+\end{figure}
+
+\subsubsection{両条件の比較}
+
+図\ref{fig:dqn_fixed}と図\ref{fig:dqn_varying}を比較すると，$\lambda$の固定・変動による顕著な差は観察されなかった．両条件において，学習された価格戦略および共謀指数の最終値はほぼ同等である．この結果は，DQNアルゴリズムの学習メカニズムに起因すると考えられる．DQNはステップごとに状態・報酬・行動の遷移を用いてQ値を更新するため，エピソード全体を通じた市場規模の変動パターンは，個別ステップにおける意思決定に直接的な影響を与えにくい．
+
+\subsection{PPOによる学習結果}
+
+\subsubsection{PPO（1,000エピソード）}
+
+PPOの結果を図\ref{fig:ppo_fixed}，図\ref{fig:ppo_varying}に示す．固定$\lambda$では共謀指数が約0.41に達したのに対し，時間変動$\lambda$（指数増加パターン；式\eqref{eq:lambda_exp}，$a=400$）では0.21程度に留まった．この差異はPPOの学習メカニズムに起因すると考えられる．PPOはエピソード終了時にまとめて更新を行うため，エピソード全体の累積報酬に基づいて方策を更新する．時間変動$\lambda$の設定では，エピソード前半（$\lambda$が小さい）での報酬の尺度が後半（$\lambda$が大きい）に比べて相対的に小さい．この報酬の尺度の変動がエピソード前半における協調行動の価値を相対的に低下させた可能性がある．
+
+\begin{figure}[tb]
+  \centering
+  \begin{minipage}[t]{0.45\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig2_PPO-1000-fixed_training.png}
+    \caption{固定$\lambda$環境での学習推移（PPO）}
+    \label{fig:ppo_fixed}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[t]{0.45\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{PPO-exponential/fig2_PPO-1000-exponential-400_1984.524399_training.png}
+    \caption{変動$\lambda$環境での学習推移（PPO）}
+    \label{fig:ppo_varying}
+  \end{minipage}
+\end{figure}
+
+\subsection{λの変化率と共謀の収束}
+
+指数トレンド需要（式\eqref{eq:lambda_exp}）における需要規模係数$\lambda_t$の変化速度が，共謀指数の収束水準に与える影響を検証する．図\ref{fig:visualize_demand_curve}に示した7種類の市場規模スケジュール（$a=100,200,400,800,1000,1200,1600$）を対象とし，エピソード長を$T=20$に固定した上で，合計需要量が一定となるように（式\eqref{eq:lambda_sum_constraint}）各$a$に対して$b$を一意に定めた．
+
+PPOにより各条件を100個の異なるランダムシードで学習を行い，共謀指数は学習期間のラスト10\%区間における平均値を算出して要約した．結果を表\ref{tab:ppo_exp_collusion}に示す．
+
+\begin{table}[tb]
+\centering
+\caption{指数トレンド需要における共謀指数（PPO，100シード平均）}
+\label{tab:ppo_exp_collusion}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrrrr}
+\hline
+$\lambda_1(=a)$ & 100 & 200 & 400 & 800 & 1000 & 1200 & 1600 \\
+$\lambda_{20}$（整数部） & 3494 & 2752 & 1984 & 1228 & 1000 & 822 & 566 \\
+共謀指数 & 0.14 & 0.16 & 0.21 & 0.30 & 0.41 & 0.48 & 0.55 \\
+\hline
+\end{tabular}
+\end{table}
+
+表\ref{tab:ppo_exp_collusion}より，需要が後半に集中する増加シナリオほど共謀指数は低く，前半に集中する減少シナリオほど共謀指数は高い傾向が確認できる．一定需要（$a=1000, b=0$）では共謀指数は0.41であるのに対し，強い増加シナリオ（例：$a=100,\lambda_{20}=3494$）では0.14まで低下し，強い減少シナリオ（例：$a=1600,\lambda_{20}=566$）では0.55まで上昇した．
+
+需要が後半に集中する条件では，終盤における需要規模（報酬の尺度）が大きくなるため，終盤での短期的な価格引下げ（逸脱）の利得が相対的に大きくなり，共謀（高価格維持）が安定しにくいと考えられる．一方，需要が前半に集中する条件では，高需要の局面が相対的に早期に現れるため，学習初期から高価格戦略が利益に結びつきやすく，結果として共謀水準が高く収束しやすい可能性がある．
+
+\section{結論・今後の課題}
+
+\subsection{結論}
+
+本研究では，在庫制約を伴うエピソディックな価格競争環境において，市場規模係数$\lambda$（需要水準）が時間変動する場合に，強化学習エージェントが学習する価格戦略と暗黙的共謀の程度がどのように変化するかを検証した．固定$\lambda$と比較して時間変動$\lambda$を導入したとき，DQNでは学習後の共謀指数に顕著な差が見られなかった一方，PPOでは共謀指数が低下する傾向が確認された．
+
+さらに，PPOについて指数トレンド需要（式\eqref{eq:lambda_exp}）の時間変化パターンを変化させた実験を行った結果，需要が後半に集中する増加トレンドでは共謀指数が低く，前半に集中する減少トレンドでは共謀指数が高くなる傾向が観察された．これは，需要の時間変動がエピソード内の報酬の尺度を変化させ，協調行動（高価格維持）の相対的な価値づけに影響し得ることを示唆している．
+
+以上より，予約市場における需要の時間的な偏り（前半集中・後半集中）が，アルゴリズム共謀の形成・維持に影響する可能性を示した．規制当局による市場監視においては，イベント等により需要が特定の時刻に集中する状況を把握しつつ，価格の同調や共謀指数の推移を評価することが重要である．
+特に本研究では，需要が後半に集中する局面では共謀水準が低下し得る一方で，需要が前半に集中する局面では共謀水準が高まり得ることが示唆された．したがって，監視を行う時期や観測頻度の設定によっては，共謀の兆候を過小評価・過大評価する可能性があるため注意を要する．
+
+\subsection{今後の課題}
+今回行った実験では，水平差別化指数や在庫制約の程度など，他の環境パラメータを固定した上で，需要規模の時間変化の影響を検証した．今後は，これらのパラメータも変化させた条件で実験を行い，需要の時間変化と他の環境要因が共謀形成に与える複合的な影響を明らかにすることが重要である．また，指数的な需要変化の根拠として予約市場における需要の増加を挙げたが，具体的な増加速度の数値は用いていない．今後，品質や水平差別化指数，在庫制約などと合わせて現実的な市場環境を構築し，実験を行うことでアルゴリズム共謀が実社会に与える影響を検討していきたい．
+
+
+% ---- Bibliography ----
+
+% BibTeX users should specify bibliography style 'splncs04'.
+% References will then be sorted and formatted in the correct style.
+
+\bibliographystyle{splncs04}
+\bibliography{main}
+
+\end{document}
