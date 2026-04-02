@@ -335,11 +335,29 @@ def solve_gnep(
                 )
             solver = SolverFactory(modules.find(solver_name), solve_io="nl")
             start_times[i] = time.time()
-            if debug:
-                solver.options["print_level"] = 5
-                solver.solve(model, tee=True)
-            else:
-                solver.solve(model)
+            try:
+                if debug:
+                    solver.options["print_level"] = 5
+                    solver.solve(model, tee=True)
+                else:
+                    solver.solve(model)
+            except Exception as solver_error:
+                # BONMIN が assertion failure 等でクラッシュする場合、couenne にフォールバック
+                if solver_name != "couenne":
+                    print(
+                        f"  ソルバー {solver_name} が失敗 (Agent {i}, It {iteration_count}): {solver_error}"
+                    )
+                    print(f"  couenne にフォールバックして再試行...")
+                    fallback_solver = SolverFactory(
+                        modules.find("couenne"), solve_io="nl"
+                    )
+                    if debug:
+                        fallback_solver.options["print_level"] = 5
+                        fallback_solver.solve(model, tee=True)
+                    else:
+                        fallback_solver.solve(model)
+                else:
+                    raise
             end_times[i] = time.time()
             print(
                 f"It {iteration_count}, Agent {i}, solved in {end_times[i] - start_times[i]:.2f}s."

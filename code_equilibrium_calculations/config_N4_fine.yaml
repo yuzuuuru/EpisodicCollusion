@@ -1,0 +1,44 @@
+experiment_name: capacity_sweep_fine
+fixed_params:
+  demand_scale_factor: 1000
+  discount_factor: 1
+  epsilon: 0.0001
+  initial_prices: quality_factor
+  marginal_cost: 1
+  max_iterations: 100
+  method: gauss-seidel
+  mu: 0.25
+  quality_factor: 2
+  regularization_tau: 0.01
+  solver_name: bonmin
+  time_horizon: 1
+output:
+  base_dir: experiments
+sweep_params:
+  N: 4
+  capacities:
+  - 50
+  - 70
+  - 90
+  - 110
+  - 130
+  - 150
+  - 160
+  - 170
+  - 180
+  - 190
+  - 200
+  - 210
+  - 220
+  - 230
+  - 240
+  - 250
+  - 260
+  - 300
+  - 340
+  - 380
+  - 420
+  - 460
+  - 500
+validation:
+  price_consistency_threshold: 0.01

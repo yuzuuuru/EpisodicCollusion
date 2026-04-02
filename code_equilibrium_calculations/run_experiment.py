@@ -188,6 +188,78 @@ def run_single_experiment(
     return nash_price, monop_price
 
 
+def run_single_experiment_nash_only(
+    N: int,
+    capacity: int,
+    fixed_params: Dict[str, Any],
+    threshold: float,
+) -> Tuple[float, float]:
+    """Nash均衡価格のみを計算（Monopoly失敗からの独立リトライ用）"""
+    time_horizon = int(fixed_params["time_horizon"])
+    mu = float(fixed_params["mu"])
+    quality_factor = float(fixed_params["quality_factor"])
+    marginal_cost = float(fixed_params["marginal_cost"])
+    demand_scale_factor = int(fixed_params["demand_scale_factor"])
+    discount_factor = float(fixed_params["discount_factor"])
+    solver_name = str(fixed_params["solver_name"])
+    method = str(fixed_params.get("method", "gauss-seidel"))
+    initial_prices = str(fixed_params.get("initial_prices", "quality_factor"))
+    epsilon = float(fixed_params.get("epsilon", 1e-4))
+    regularization_tau = float(fixed_params.get("regularization_tau", 0.01))
+    max_iterations = int(fixed_params.get("max_iterations", 100))
+
+    quality_factors = np.array([quality_factor] * N)
+    marginal_costs = np.array([marginal_cost] * N)
+    capacities = np.array([capacity] * N)
+    discount_factors = np.array([discount_factor] * N)
+    demand_scale_over_time = build_demand_scale(None, {}, time_horizon, demand_scale_factor)
+    regularization_tau_scaled = regularization_tau * np.mean(demand_scale_over_time)
+
+    nash_prices, _, _ = solve_gnep(
+        N=N, time_horizon=time_horizon, quality_factors=quality_factors,
+        mu=mu, marginal_costs=marginal_costs, capacities=capacities,
+        demand_scale_over_time=demand_scale_over_time,
+        discount_factors=discount_factors, epsilon=epsilon,
+        solver_name=solver_name, method=method,
+        regularization_tau=regularization_tau_scaled,
+        debug=False, initial_prices=initial_prices, max_iterations=max_iterations,
+    )
+    nash_price = validate_price_consistency(nash_prices, threshold, f"Nash (N={N}, cap={capacity})")
+    return nash_price, float("nan")
+
+
+def run_single_experiment_monopoly_only(
+    N: int,
+    capacity: int,
+    fixed_params: Dict[str, Any],
+    threshold: float,
+) -> Tuple[float, float]:
+    """Monopoly価格のみを計算（Nash失敗からの独立リトライ用）"""
+    time_horizon = int(fixed_params["time_horizon"])
+    mu = float(fixed_params["mu"])
+    quality_factor = float(fixed_params["quality_factor"])
+    marginal_cost = float(fixed_params["marginal_cost"])
+    demand_scale_factor = int(fixed_params["demand_scale_factor"])
+    discount_factor = float(fixed_params["discount_factor"])
+    solver_name = str(fixed_params["solver_name"])
+    initial_prices = str(fixed_params.get("initial_prices", "quality_factor"))
+
+    quality_factors = np.array([quality_factor] * N)
+    marginal_costs = np.array([marginal_cost] * N)
+    capacities = np.array([capacity] * N)
+    discount_factors = np.array([discount_factor] * N)
+
+    monop_prices, _, _ = solve_monopoly(
+        N=N, time_horizon=time_horizon, quality_factors=quality_factors,
+        mu=mu, marginal_costs=marginal_costs, capacities=capacities,
+        demand_scale_factor=demand_scale_factor,
+        discount_factors=discount_factors, solver_name=solver_name,
+        debug=False, initial_prices=initial_prices,
+    )
+    monop_price = validate_price_consistency(monop_prices, threshold, f"Monopoly (N={N}, cap={capacity})")
+    return float("nan"), monop_price
+
+
 def detect_boundaries(df: pd.DataFrame, tolerance: float = 0.01) -> Tuple[int, int]:
     """
     データから領域境界を自動検出する
@@ -206,37 +278,46 @@ def detect_boundaries(df: pd.DataFrame, tolerance: float = 0.01) -> Tuple[int, i
     nash_prices = df["nash"].values
     monop_prices = df["monop"].values
     
+    # NaN を除外したデータで検出
+    valid_mask = ~(np.isnan(nash_prices) | np.isnan(monop_prices))
+    inventories_valid = inventories[valid_mask]
+    nash_valid = nash_prices[valid_mask]
+    monop_valid = monop_prices[valid_mask]
+    
+    if len(inventories_valid) == 0:
+        return int(inventories[0]), int(inventories[-1])
+    
     # Overconstrained→Constrained境界を検出
     # nash と monop が初めて異なる（tolerance以上の差がある）ポイント
-    overconstrained_boundary = inventories[0]
-    for i in range(len(inventories)):
-        if monop_prices[i] != 0:
-            relative_diff = abs(nash_prices[i] - monop_prices[i]) / monop_prices[i]
+    overconstrained_boundary = inventories_valid[0]
+    for i in range(len(inventories_valid)):
+        if monop_valid[i] != 0:
+            relative_diff = abs(nash_valid[i] - monop_valid[i]) / monop_valid[i]
         else:
-            relative_diff = abs(nash_prices[i] - monop_prices[i])
+            relative_diff = abs(nash_valid[i] - monop_valid[i])
         
         if relative_diff > tolerance:
             if i > 0:
-                overconstrained_boundary = inventories[i - 1]
+                overconstrained_boundary = inventories_valid[i - 1]
             break
     else:
         # 全て同じ場合は最後の値
-        overconstrained_boundary = inventories[-1]
+        overconstrained_boundary = inventories_valid[-1]
     
     # Constrained→Unconstrained境界を検出
     # nash価格が連続して同じ値（tolerance以内）になるポイント
-    unconstrained_boundary = inventories[-1]
-    for i in range(len(inventories) - 1, 0, -1):
-        if nash_prices[i - 1] != 0:
-            relative_diff = abs(nash_prices[i] - nash_prices[i - 1]) / nash_prices[i - 1]
+    unconstrained_boundary = inventories_valid[-1]
+    for i in range(len(inventories_valid) - 1, 0, -1):
+        if nash_valid[i - 1] != 0:
+            relative_diff = abs(nash_valid[i] - nash_valid[i - 1]) / nash_valid[i - 1]
         else:
-            relative_diff = abs(nash_prices[i] - nash_prices[i - 1])
+            relative_diff = abs(nash_valid[i] - nash_valid[i - 1])
         
         if relative_diff > tolerance:
-            unconstrained_boundary = inventories[i]
+            unconstrained_boundary = inventories_valid[i]
             break
     else:
-        unconstrained_boundary = inventories[0]
+        unconstrained_boundary = inventories_valid[0]
     
     return overconstrained_boundary, unconstrained_boundary
 
@@ -290,7 +371,8 @@ def generate_plot(
             scaled_start = overconstrained_bound * 0.8 + (unconstrained_bound - overconstrained_bound) * 2
             return scaled_start + (x - unconstrained_bound) * 0.8
     
-    # データを変換
+    # データを変換（NaN行を除外）
+    df = df.dropna(subset=["nash", "monop"], how="all")
     df["transformed_inventory"] = df["inventory"].apply(rescale_x)
     
     # プロット作成
@@ -423,6 +505,9 @@ def run_experiment(config: Dict[str, Any], dry_run: bool = False) -> None:
         results = []
         
         for capacity in capacities_list:
+            nash_price = float("nan")
+            monop_price = float("nan")
+            
             try:
                 nash_price, monop_price = run_single_experiment(
                     N=N,
@@ -430,19 +515,29 @@ def run_experiment(config: Dict[str, Any], dry_run: bool = False) -> None:
                     fixed_params=fixed_params,
                     threshold=threshold,
                 )
-                results.append({
-                    "inventory": capacity,
-                    "nash": round(nash_price, 3),
-                    "monop": round(monop_price, 3),
-                })
             except Exception as e:
                 print(f"  エラー (N={N}, capacity={capacity}): {e}")
-                # エラーが発生してもNaNで記録して続行
-                results.append({
-                    "inventory": capacity,
-                    "nash": float("nan"),
-                    "monop": float("nan"),
-                })
+                # Nash/Monopoly を個別にリトライ
+                try:
+                    nash_price, _ = run_single_experiment_nash_only(
+                        N=N, capacity=capacity,
+                        fixed_params=fixed_params, threshold=threshold,
+                    )
+                except Exception as e2:
+                    print(f"  Nash個別リトライも失敗: {e2}")
+                try:
+                    _, monop_price = run_single_experiment_monopoly_only(
+                        N=N, capacity=capacity,
+                        fixed_params=fixed_params, threshold=threshold,
+                    )
+                except Exception as e2:
+                    print(f"  Monopoly個別リトライも失敗: {e2}")
+            
+            results.append({
+                "inventory": capacity,
+                "nash": round(nash_price, 3) if not np.isnan(nash_price) else float("nan"),
+                "monop": round(monop_price, 3) if not np.isnan(monop_price) else float("nan"),
+            })
         
         # 結果をCSVに保存
         df = pd.DataFrame(results)
