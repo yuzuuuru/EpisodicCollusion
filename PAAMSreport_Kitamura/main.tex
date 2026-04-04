@@ -2,6 +2,8 @@
 % (をさらに先生に見ていただいたもの)(をさらに少し修正したもの)
 % (の査読通過後に修正したもの)
 
+% コンパイルは latexmk -lualatex -interaction=nonstopmode -halt-on-error main.tex
+
 %
 \documentclass[runningheads]{llncs}
 %
@@ -77,12 +79,12 @@ eコマースの拡大やデータ処理基盤の高度化を背景に，価格�
 このとき，人手で設計した固定的な価格ルールのみで環境変化へ即応することは難しく，機械学習を用いてデータ駆動的に価格戦略を最適化するアプローチが注目されている．
 
 一方で，学習アルゴリズムの自律性は，競合企業間に明示的なコミュニケーションが存在しない場合であっても，
-結果として価格の引き上げが維持されるような振る舞い（アルゴリズムによる暗黙的共謀）を生じ得るとの懸念を伴う\cite{mehra2016}．
+結果として価格の引き上げが維持されるような振る舞い（アルゴリズムによる暗黙的共謀）を生じ得るとの懸念を伴う\cite{mehra2016,ezrachi2017}．
 この種の現象は，消費者厚生の低下や市場効率性の損失につながり得るだけでなく，
 伝統的な競争政策が想定してきた「合意」や「意思連絡」の立証が困難である点で，執行上の課題を提起する\cite{harrington2019}．
 以上の背景から，アルゴリズムが競争環境下でどのような条件のもと共謀的結果へ収束するのかを明らかにすることは，学術的・社会的に重要である．
 
-例えば，Calvanoら\cite{calvano2020b}は反復ベルトラン競争における強化学習エージェントを分析し，
+例えば，Calvanoら\cite{calvano2020a}は反復ベルトラン競争における強化学習エージェントを分析し，
 単なる高価格化にとどまらず，逸脱に対する報酬・懲罰構造を伴う協調的行動が内生的に形成され得ることを示し，
 % この知見は，プラットフォーム設計や規制設計への含意を持ち，たとえば
 消費者とプラットフォーマーの厚生の観点から制度設計を検討する研究などへと発展している\cite{johnson2020}．
@@ -97,7 +99,8 @@ eコマースの拡大やデータ処理基盤の高度化を背景に，価格�
 \section{関連研究}
 
 \subsection{強化学習による価格競争と暗黙的共謀}
-Q学習による価格設定が，企業間の明示的なコミュニケーションなしに高価格を維持する「暗黙的共謀（tacit collusion）」へと収束し得ることが示されている\cite{calvano2020b}．価格競争モデルには非エピソードの反復ベルトラン競争\cite{Farrell2000}が使用された．また，既存研究の実験では100,000期間など一定の制限を設ける場合が多いが，本研究の期間は無期限に設定されている．
+% 引用が正しいかどうか要精査
+Q学習による価格設定が，企業間の明示的なコミュニケーションなしに高価格を維持する「暗黙的共謀（tacit collusion）」へと収束し得ることが示されている\cite{calvano2020b,salcedo2015,klein2021,hansen2021}．価格競争モデルには非エピソードの反復ベルトラン競争\cite{Farrell2000}が使用された．また，既存研究の実験では100,000期間など一定の制限を設ける場合が多いが，本研究の期間は無期限に設定されている．
 
 反復ベルトラン競争では次の仮定が置かれている．
 \begin{itemize}
@@ -106,18 +109,23 @@ Q学習による価格設定が，企業間の明示的なコミュニケーシ�
    \item 固定費用は無いとする．
 \end{itemize}
 ただし，限界費用は製品の生産量に応じて変動する費用のことを指し，固定費用は製品の生産量によらない費用のことである．
-この研究と同様の設定は多くの研究で用いられている．例えばHettichら\cite{hettich2021}はDQN\cite{mnih2015}を用いて少ないメモリ空間で効率的な学習が可能であることを実証した．また，PPO\cite{schulman2017proximal}を用いた場合にも暗黙的共謀が起こることが示されている\cite{Schlechtinger2024}．
+この研究と同様の設定は多くの研究で用いられている．例えばHettichら\cite{hettich2021}はDQN\cite{mnih2015}を用いて少ないメモリ空間で効率的な学習が可能であることを実証した．また，PPO\cite{schulman2017proximal}を用いた場合にも暗黙的共謀が生じ得ることが示されており\cite{Schlechtinger2024}，さらに他の深層強化学習アルゴリズムとの比較も行われている\cite{deng2024algorithmic}．
+% 要精査
+また，policy-gradientに基づく自律価格設定の検討\cite{martello2022autonomous}，価格アルゴリズムの競争効果を実証的に分析する研究や，共謀的結果の回避可能性を検討する研究，市場構造とアルゴリズム競争の関係を整理した研究も存在する\cite{brown2021,assad2020,Abada2020,Sanchez-Cartas2022}．
 
 \subsection{エピソディック・在庫制約市場での共謀学習}
-現実の多くの市場は有限期間で区切られ，かつ在庫（供給）制約を伴う．例えば航空券やホテル，期限のある商品では，販売期間（エピソード）の終了とともに販売機会が消失し，さらに各企業は有限の供給量のもとで収益最大化を行う必要がある．このような有限期間設定では，エピソード終盤になるほど懲罰の信用性が低下するため，逆向き帰納法に基づけば共謀は理論的に成立しないという見方がある．それにもかかわらず，学習アルゴリズムは同一の相手と複数エピソードにわたり反復的に相互作用することで，実験的には共謀的行動を獲得し得ることが示された\cite{friedrich2025learning}．同研究では在庫制約つきの有限期間価格競争を，有限期間マルコフゲームとして定式化し，エージェントの暗黙的共謀を分析した．各時刻で企業は価格を同時に選択し，需要に応じて販売が発生し，在庫が更新される．
+現実の多くの市場は有限期間で区切られ，かつ在庫（供給）制約を伴う．例えば航空券やホテル，期限のある商品では，販売期間（エピソード）の終了とともに販売機会が消失し，さらに各企業は有限の供給量のもとで収益最大化を行う必要がある．このような有限期間設定では，エピソード終盤になるほど懲罰の信用性が低下するため，逆向き帰納法に基づけば共謀は理論的に成立しないという見方がある．それにもかかわらず，学習アルゴリズムは同一の相手と複数エピソードにわたり反復的に相互作用することで，実験的には共謀的行動を獲得し得ることが示された\cite{friedrich2025learning}．
+% 同研究では在庫制約つきの有限期間価格競争を，有限期間マルコフゲームとして定式化し，エージェントの暗黙的共謀を分析した．各時刻で企業は価格を同時に選択し，需要に応じて販売が発生し，在庫が更新される．
 
 \subsection{予約市場における予約曲線の指数的性質}
 Shintaniら\cite{ShintaniUmeno2023ABCDEF}は，ホテルおよびレンタカー業界の実予約データを用いて，予約市場における平均予約曲線の時間構造を分析している．ここで平均予約曲線とは，締切日までの残り時間$t$に対する累積予約数を，複数日の予約曲線について平均したものである．著者らは，この平均予約曲線が$E[X(t)] \simeq A\exp(-\beta t)$という指数関数で近似できることを示し，これをABCDEF（Average Booking Curves Draw Exponential Functions）lawと呼んでいる．
 
+\if 0
 さらに同研究では，この指数的形状が複数の施設や異なる経済環境（COVID-19前後）においても広く観測されることを実証し，予約行動の時間的分布が環境に応じて変化しつつも，指数関数という単純な形で記述可能であることを明らかにしている．指数パラメータ$\beta$は予約の進行速度を表し，予約が早期に集中する環境ほど大きく，直前予約が多い環境ほど小さくなることが報告されている．
 
 この結果は，予約市場において需要の到着が時間的に非一様であり，締切に向かって加速または減速する構造を持つことを示唆している．この知見は予約市場を扱うシミュレーションや動的価格設定モデルにおける需要の時間構造を考える上で重要である．
-
+\fi
+また，Itoら\cite{ItoEtAl2024ReservationTiming}は，日本のオンライン旅行代理店（OTA）の予約データを用いて，宿泊予約の予約タイミングおよびキャンセル確率の時間変化を分析し，これらが宿泊日までの日数や予約後経過日数に関する複数の指数関数の和として表現可能であることを示している．
 
 \section{問題設定}
 \label{sec:problem_statement}
@@ -213,6 +221,23 @@ d_{i,t}=\left\lfloor \lambda\, s_{i,t} \right\rfloor
 基準としてナッシュ均衡（competitive / Nash equilibrium）と独占最適（collusive / monopolistic optimum）を行動空間上で定義する．
 さらに，競争水準からどれだけ価格が上昇しているかを測るため，0から1の範囲で共謀指数を定義する．
 
+ここでいう競争基準は，各時点ごとの静学的な価格均衡ではない．
+在庫制約の下では，ある期の価格設定が当期の需要だけでなく将来の在庫残量と将来利潤にも影響するため，
+各企業は各時点の価格を独立に選ぶのではなく，エピソード開始時点で価格系列
+\begin{equation}
+p_i=(p_{i,1},\dots,p_{i,T})
+\label{eq:episode_price_vector}
+\end{equation}
+全体を選ぶ問題として競争を捉える必要がある．
+したがって，本研究におけるナッシュ均衡とは，相手企業の価格系列を固定したとき，
+どの企業も自社の価格系列全体を一方的に変更してもエピソード総利潤を増やせない状態を指す．
+同様に，共謀基準は全企業の価格系列全体を同時に選んで総利潤を最大化する解として定義される．
+先行研究\cite{friedrich2025learning}では，無割引設定の下で，この競争解と共同利潤最大化解はいずれも各期で同一価格を繰り返す形で表されることが示されている．
+そこで本稿では，その反復される基準価格をそれぞれ競争価格$p^N$，共謀価格$p^M$と呼び，
+それらの価格を各期に適用したときに式\eqref{eq:profit_reward}によって計算される利潤
+$R^N_{i,t}$，$R^M_{i,t}$を共謀指数の基準として用いる．
+
+
 具体的には，企業$i$のエピソード利得（episodic profit gain）を
 \begin{equation}
 \Delta_{i,e}
@@ -240,9 +265,17 @@ d_{i,t}=\left\lfloor \lambda\, s_{i,t} \right\rfloor
 \section{実験設計}
 \label{sec:method_timevarying_lambda}
 
+本章では，固定需要モデルを時間変動需要へ拡張した実験環境を述べる．
+本拡張の狙いは，需要総量や需要シェアの計算を保ったままその時間配分だけを変化させることで，競争価格・共謀価格という比較基準を原則として据え置ける形で非定常需要を導入する点にある．
+これにより，各ステップごとにナッシュ均衡価格を再計算を必要としなくなるため、現実的な計算時間で需要の時間変動を評価できる．
+
 \subsection{需要規模係数の時間関数化}
-先行研究\cite{friedrich2025learning}では需要規模係数$\lambda$はエピソードを通じて一定である．
-本研究では$\lambda$を時刻$t$に依存する$\lambda_t$へ拡張し，エピソード内で需要水準が変動する状況を表現する．なお，本研究では$\lambda_t>0$は実数として扱い（整数に限らない），需要量は床関数により整数化される．
+先行研究\cite{friedrich2025learning}では，需要規模係数$\lambda$はエピソードを通じて一定である．
+本研究では$\lambda$を時刻$t$に依存する$\lambda_t$へ拡張し，エピソード内で需要水準が変動する状況を表現する．
+% この拡張では，需要関数の形，在庫更新則，報酬構造はそのまま保ち，需要規模のみを時刻依存にする．
+% したがって，固定$\lambda$モデルに対する最小限かつ自然な一般化になっている．
+
+なお，本研究では$\lambda_t>0$は実数として扱い（整数に限らない），需要量は床関数により整数化される．
 このとき，需要量は式\eqref{eq:scaled_demand_const}の$\lambda$を$\lambda_t$に置き換え
 \begin{equation}
 d_{i,t}=\left\lfloor \lambda_t\, s_{i,t} \right\rfloor
@@ -250,6 +283,57 @@ d_{i,t}=\left\lfloor \lambda_t\, s_{i,t} \right\rfloor
 \end{equation}
 とする．
 販売量と在庫更新は式\eqref{eq:inventory_update}に従う．
+
+この拡張は、時間変動するモデルであるにもかかわらず、各期でのナッシュ均衡価格の再計算を必要としないという利点がある。ここでのナッシュ均衡価格については、式\eqref{eq:episode_price_vector}で定義されるものを指す。
+% 以下でいう「ナッシュ均衡価格」および「共謀価格」は，前節で導入したエピソード全体の価格系列問題に対応する基準価格$p^N$，$p^M$（無割引設定では各期一定）を指す．
+この拡張がナッシュ均衡価格の再計算を必要としない理由は需要規模変動下におけるナッシュ均衡価格が固定需要モデルのナッシュ均衡価格と同一であるからである．以下では同一になる理由を説明する。
+まず，床関数を外した連続需要近似
+\begin{equation}
+\tilde d_{i,t}:=\lambda_t s_{i,t}
+\label{eq:scaled_demand_relaxed}
+\end{equation}
+を考える．
+このとき，相手企業の価格系列を固定した下での企業$i$の最適化問題は % 注:この最適化問題とは利益の最大化ではなく、ナッシュ均衡価格を求めるための最適化問題である。
+\begin{equation}
+\max_{(p_{i,1},\dots,p_{i,T})}
+\sum_{t=1}^{T}(p_{i,t}-c_i)\lambda_t s_{i,t}
+\quad
+\text{s.t.}\quad
+\sum_{t=1}^{T}\lambda_t s_{i,t}\le I_i,\ \ p_{i,t}\ge 0
+\label{eq:timevarying_lambda_relaxed_problem}
+\end{equation}
+と書ける．
+この在庫制約に対するラグランジュ乗数を$\nu_i\ge 0$とすると，ラグラジアンは
+\begin{equation}
+\mathcal{L}_i
+=
+\sum_{t=1}^{T}
+\lambda_t\bigl((p_{i,t}-c_i)-\nu_i\bigr)s_{i,t}
++\nu_i I_i
+\label{eq:timevarying_lambda_lagrangian}
+\end{equation}
+となる．
+ここで$\lambda_t>0$であるため，固定した$\nu_i$の下で各期$t$の価格$p_{i,t}$を選ぶ問題は，
+\begin{equation}
+\bigl((p_{i,t}-c_i)-\nu_i\bigr)s_{i,t}
+\label{eq:timevarying_lambda_inner_problem}
+\end{equation}
+を最大化する問題と同値であり，$\lambda_t$そのものは「どの価格が最適か」という順序を変えない．
+したがって，連続需要近似の下では，$\lambda_t$は各期の価格選択の優劣順序を変えず，本研究のように
+\begin{equation}
+\sum_{t=1}^{T}\lambda_t = T\bar{\lambda}
+\label{eq:timevarying_lambda_sum}
+\end{equation}
+を満たすように比較する場合には，固定需要$\lambda=\bar{\lambda}$のケースで用いたナッシュ均衡価格をそのまま比較基準として用いることができる．
+同様の議論は共同利潤最大化問題に対しても成り立つため，共謀価格についても同様である．
+
+% 厳密には上記証明は成り立たないので、その補足を次でしている。
+一方で，本研究で実際に用いるモデルでは需要量は式\eqref{eq:scaled_demand}のように
+$\lfloor \lambda_t s_{i,t}\rfloor$で与えられる．
+このとき$\lambda_t$は床関数の内側に入るため，上記の不変性は厳密には保証されない．
+ただし，これは離散化に伴う境界効果であり，本研究の主たる比較軸ではない．
+補足的に，各市場規模シナリオについて競争価格および共謀価格を数値的に再計算したところ，一定需要ケースとの差は最大でも0.05\%未満であった．
+このため本研究では，固定需要ケースで用いた競争価格・共謀価格を全シナリオで共通の基準として維持し，$\lambda_t$の時間変動は主として総需要をエピソード内のどの時点に配分するかを変える拡張として扱う．
 
 \subsection{市場規模シナリオ設計}
 需要規模係数$\lambda_t$は，ABCDEF則\cite{ShintaniUmeno2023ABCDEF}を反映した予約市場における需要傾向を表現するため，
@@ -309,14 +393,14 @@ $b>0$とすれば需要が時間とともに増加し，$b<0$とすれば需要�
 \centering
 \begin{minipage}[t]{0.45\textwidth}
 \centering
-\includegraphics[width=\textwidth]{fig2_DQN-50000-fixed_training.png}
+\includegraphics[width=\textwidth]{fig2_DQN-50000-fixed_collindex.png}
 \caption{固定$\lambda$環境での学習推移（DQN）}
 \label{fig:dqn_fixed}
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.45\textwidth}
 \centering
-\includegraphics[width=\textwidth]{fig2_DQN-50000-exponential-400_1984.524399_training.png}
+\includegraphics[width=\textwidth]{fig2_DQN-50000-exponential-400_1984.524399_collindex.png}
 \caption{変動$\lambda$環境での学習推移（DQN）}
 \label{fig:dqn_varying}
 \end{minipage}
@@ -336,17 +420,53 @@ PPOの結果を図\ref{fig:ppo_fixed}，図\ref{fig:ppo_varying}に示す．固�
   \centering
   \begin{minipage}[t]{0.45\textwidth}
     \centering
-    \includegraphics[width=\textwidth]{fig2_PPO-1000-fixed_training.png}
+    \includegraphics[width=\textwidth]{fig2_PPO-1000-fixed_collindex.png}
     \caption{固定$\lambda$環境での学習推移（PPO）}
     \label{fig:ppo_fixed}
   \end{minipage}
   \hfill
   \begin{minipage}[t]{0.45\textwidth}
     \centering
-    \includegraphics[width=\textwidth]{PPO-exponential/fig2_PPO-1000-exponential-400_1984.524399_training.png}
+    \includegraphics[width=\textwidth]{PPO-exponential/fig2_PPO-1000-exponential-400_1984.524399_collindex.png}
     \caption{変動$\lambda$環境での学習推移（PPO）}
     \label{fig:ppo_varying}
   \end{minipage}
+\end{figure}
+
+\subsubsection{学習済みエージェントのエピソード内行動分析}
+
+学習後の方策がエピソード内でどのように価格を決定しているかを確認するため，学習済みエージェントの評価エピソードを観察した．図\ref{fig:ppo_eval_episode_compare}より，固定$\lambda$環境と比較し時間変動$\lambda$環境では初期ステップでの価格が低いことが分かる。終盤にかけての需要スケールの増加が、エピソード前半での共謀行動の価値を相対的に低下させた可能性がある．
+
+さらに，図\ref{fig:ppo_forced_deviation_compare}は，一方のエージェントに逸脱を強制した場合の価格応答を示している．いずれの環境でも一時的な価格逸脱の後に相手エージェントが価格を調整する様子が見られる．ただし指数増加$\lambda$環境では逸脱後に共謀へ復帰した際の価格が固定$\lambda$環境に比べて低い。つまり、初期価格の低下は、競争に陥っていることではなく、共謀は成立しているものの、共謀水準が低いことに起因していると考えられる．
+
+\begin{figure}[tb]
+  \centering
+  \begin{minipage}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig3a_PPO-1000-fixed_evalep.png}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig3a_PPO-1000-exponential-400_1984.524399_evalep.png}
+  \end{minipage}
+  \caption{学習済み方策の評価エピソードにおける価格系列の比較（左：固定$\lambda$，右：指数増加$\lambda$）}
+  \label{fig:ppo_eval_episode_compare}
+\end{figure}
+
+\begin{figure}[tb]
+  \centering
+  \begin{minipage}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig3a_PPO-1000-fixed_forced_dev.png}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{fig3a_PPO-1000-exponential-400_1984.524399_forced_dev.png}
+  \end{minipage}
+  \caption{一方のエージェントに逸脱を強制した場合の価格応答の比較（上段：$t=1$で逸脱，下段：$t=9$で逸脱，左：固定$\lambda$，右：指数増加$\lambda$）}
+  \label{fig:ppo_forced_deviation_compare}
 \end{figure}
 
 \subsection{λの変化率と共謀の収束}
