@@ -19,12 +19,17 @@
 # %%
 import pickle
 import os
-import jax
-import jax.numpy as jnp
 import numpy as np
 import matplotlib.pyplot as plt
 import glob
 import argparse
+
+try:
+    import jax
+    import jax.numpy as jnp
+except ModuleNotFoundError:
+    jax = None
+    jnp = np
 
 from plotting_utils import (
     overall_mean_stdev_from_seed_means_variances,
@@ -43,6 +48,166 @@ if "--save_dir" in sys.argv:
 plot_new = True
 plot_shaded_or_individual = "shaded"
 generalized_mean_p = 0.5
+
+
+def load_run_data(sd):
+    """Load the minimum data required for plotting from one experiment directory."""
+    with open(f"{sd}/args.pkl", "rb") as file:
+        run_args = pickle.load(file)
+    with open(f"{sd}/log_data.pkl", "rb") as file:
+        run_log_data = pickle.load(file)
+
+    if isinstance(run_log_data, tuple):
+        if len(run_log_data) == 2:
+            run_log_data, _ = run_log_data
+        elif len(run_log_data) == 3:
+            run_log_data, _, _ = run_log_data
+        else:
+            raise ValueError("log_data tuple has an unexpected length")
+
+    run_env_stats, _, _ = run_log_data
+    return run_args, run_env_stats
+
+
+def get_filtered_env_metrics(run_args, env_stats):
+    """Slice env metrics to the logged x-axis and skip DQN pre-training episodes."""
+    log_interval = max(run_args["num_iters"] // 1000, 5 if run_args["num_iters"] > 1000 else 1)
+    x_axis = np.arange(0, run_args["num_iters"], log_interval)
+    env_metrics_sliced = {k: v[:, 0, x_axis, ...] for k, v in env_stats.items()}
+
+    if run_args["agent_default"] == "DQN":
+        dqn_training_starts = run_args["dqn_default"]["initial_exploration_episodes"]
+        start_index = next((i for i, x in enumerate(x_axis) if x > dqn_training_starts), 0)
+        x_axis = x_axis[start_index:]
+        env_metrics_sliced = {k: v[:, start_index:] for k, v in env_metrics_sliced.items()}
+
+    return x_axis, env_metrics_sliced
+
+
+def compute_collusion_stats(run_args, env_stats, gen_mean_p):
+    """Return x-axis plus mean/std of generalized-mean collusion index."""
+    x_axis, env_metrics_sliced = get_filtered_env_metrics(run_args, env_stats)
+    agent_profit_gains_seeds = np.zeros(
+        (run_args["num_seeds"], run_args["num_players"], len(x_axis))
+    )
+    for agent_idx in range(run_args["num_players"]):
+        agent_profit_gains_seeds[:, agent_idx, :] = env_metrics_sliced[
+            f"train/collusion_index/mean_player_{agent_idx + 1}"
+        ]
+
+    coll_idx_seeds_gen = generalized_mean(agent_profit_gains_seeds, p=gen_mean_p)
+    coll_idx_gen_mean = coll_idx_seeds_gen.mean(axis=0)
+    coll_idx_gen_std = np.sqrt(coll_idx_seeds_gen.var(axis=0))
+    return x_axis, coll_idx_gen_mean, coll_idx_gen_std
+
+
+def plot_fig2_condition_comparison(run_specs, output_filename, title):
+    """Overlay fixed and time-varying demand runs for one algorithm in a single panel."""
+    plt.style.use("seaborn-v0_8-whitegrid")
+    plt.rcParams["font.family"] = "sans-serif"
+    plt.rcParams["font.size"] = 11
+    plt.rcParams["axes.linewidth"] = 0.8
+    plt.rcParams["axes.edgecolor"] = "#333333"
+    plt.rcParams["xtick.major.width"] = 0.8
+    plt.rcParams["ytick.major.width"] = 0.8
+    plt.rcParams["xtick.direction"] = "out"
+    plt.rcParams["ytick.direction"] = "out"
+
+    fig, ax = plt.subplots(1, 1, figsize=(6.4, 4.2), dpi=300, facecolor="white")
+
+    for spec in run_specs:
+        run_args, env_stats = load_run_data(spec["save_dir"])
+        x_axis, coll_idx_mean, coll_idx_std = compute_collusion_stats(
+            run_args, env_stats, generalized_mean_p
+        )
+        last_10_percent_avg = coll_idx_mean[-max(1, int(len(coll_idx_mean) * 0.1)) :].mean()
+
+        ax.plot(
+            x_axis,
+            coll_idx_mean,
+            linewidth=2,
+            color=spec["color"],
+            linestyle=spec["linestyle"],
+            label=f"{spec['label']} (last 10%: {last_10_percent_avg:.2f})",
+        )
+        ax.fill_between(
+            x_axis,
+            coll_idx_mean - coll_idx_std,
+            coll_idx_mean + coll_idx_std,
+            alpha=0.2,
+            color=spec["color"],
+            linewidth=0,
+        )
+
+    ax.set_title(title, fontsize=15, pad=8)
+    ax.axhline(0, color="#d62728", linestyle="--", linewidth=2)
+    ax.axhline(1, color="#2ca02c", linestyle="--", linewidth=2)
+    ax.set_xlabel("Episodes", fontsize=14, labelpad=8)
+    ax.set_ylabel("Collusion Index", fontsize=14, labelpad=8)
+    legend = ax.legend(fontsize=11, frameon=True, loc="upper left", bbox_to_anchor=(0.02, 0.98))
+    legend.get_frame().set_edgecolor("#333333")
+    legend.get_frame().set_linewidth(0.8)
+
+    fig.tight_layout()
+    plot_dir = os.path.join("exp", "fig2_combined_plots")
+    os.makedirs(plot_dir, exist_ok=True)
+    output_path = os.path.join(plot_dir, output_filename)
+    fig.savefig(
+        output_path,
+        dpi=300,
+        bbox_inches="tight",
+        facecolor="white",
+        edgecolor="none",
+    )
+    plt.close(fig)
+    print(f"Saved {output_path}")
+    return output_path
+
+
+def plot_default_fig2_condition_comparisons():
+    """Generate the two paper-friendly comparison plots used to replace four separate figure panels."""
+    output_paths = []
+    output_paths.append(
+        plot_fig2_condition_comparison(
+            [
+                {
+                    "save_dir": "exp/DQN-50000-fixed",
+                    "label": "Fixed demand",
+                    "color": "#1A5F7A",
+                    "linestyle": "-",
+                },
+                {
+                    "save_dir": "exp/DQN-50000-exponential-400_1984.524399",
+                    "label": "Exponential demand",
+                    "color": "#E07A5F",
+                    "linestyle": "-",
+                },
+            ],
+            "fig2_DQN_fixed_vs_exponential_collindex.png",
+            "DQN: Fixed vs Exponential Demand",
+        )
+    )
+    output_paths.append(
+        plot_fig2_condition_comparison(
+            [
+                {
+                    "save_dir": "exp/PPO-1000-fixed",
+                    "label": "Fixed demand",
+                    "color": "#8B4B8B",
+                    "linestyle": "-",
+                },
+                {
+                    "save_dir": "exp/PPO-1000-exponential-400_1984.524399",
+                    "label": "Exponential demand",
+                    "color": "#E07A5F",
+                    "linestyle": "-",
+                },
+            ],
+            "fig2_PPO_fixed_vs_exponential_collindex.png",
+            "PPO: Fixed vs Exponential Demand",
+        )
+    )
+    return output_paths
 
 def process_save_dir(sd):
     """Load data for a given `sd` and call plotting routines. Updates module-level globals used by plotting functions."""
@@ -74,6 +239,10 @@ def process_save_dir(sd):
                 log_data, eval_log_data = log_data
                 forced_deviation_log_data = None
             elif len(log_data) == 3:
+                if jax is None:
+                    raise ModuleNotFoundError(
+                        "jax is required to process 3-tuple log_data in per-run plotting mode"
+                    )
                 log_data, eval_log_data, forced_deviation_log_data = log_data
                 forced_deviation_log_data_unstacked = [
                     jax.tree.map(lambda v: v[:, :, i, ...], forced_deviation_log_data)
@@ -456,7 +625,7 @@ def plot_vert(env_metrics, x_axis, gen_mean_p):
     ax.text(
         text_x,  # DQN: 0.946. PPO: 0.954 compPPO
         text_y,  # DQN: 0.02. PPO: 0.015 compPPO
-        f"Last 10\% avg: {last_10_percent_avg:.2f}",
+        f"Last 10% avg: {last_10_percent_avg:.2f}",
         transform=ax.transAxes,
         ha="right",
         va="bottom",
@@ -610,7 +779,7 @@ def plot_PPO_and_DQN_training_runs():
     # axs[2].set_title("Collusion Index (Generalized Mean, $\gamma=0.5$)", fontsize=16, pad=5)
     axs[2].axhline(0, color="#d62728", linestyle="--", linewidth=2)
     axs[2].axhline(1, color="#2ca02c", linestyle="--", linewidth=2)
-    axs[2].set_xlabel(f"Training Progress (\%)", fontsize=15, labelpad=5)
+    axs[2].set_xlabel("Training Progress (%)", fontsize=15, labelpad=5)
     axs[2].set_ylabel("Collusion Index", fontsize=15, labelpad=5)
     axs[2].legend(fontsize=14, frameon=True, loc="upper left", bbox_to_anchor=(0.02, 0.96))
 
@@ -642,9 +811,22 @@ if __name__ == "__main__":
         default=[save_dir],
         help="One or more experiment directories under code_training (e.g. exp/DQN-50000-comparison)",
     )
+    parser.add_argument(
+        "--compare-default-fig2",
+        action="store_true",
+        help="Generate fixed-vs-exponential collusion-index comparison plots for DQN and PPO.",
+    )
     cli_args = parser.parse_args()
 
-    for sd in cli_args.save_dir:
+    if cli_args.compare_default_fig2:
+        for output_path in plot_default_fig2_condition_comparisons():
+            display_single_plot(output_path)
+
+    save_dirs_to_process = cli_args.save_dir
+    if cli_args.compare_default_fig2 and "--save_dir" not in sys.argv:
+        save_dirs_to_process = []
+
+    for sd in save_dirs_to_process:
         print(f"\nProcessing: {sd}")
         try:
             process_save_dir(sd)

@@ -395,58 +395,39 @@ $b>0$とすれば需要が時間とともに増加し，$b<0$とすれば需要�
 
 \subsubsection{λ固定環境における学習}
 
-図\ref{fig:dqn_fixed}は，市場規模係数が固定された環境における学習の推移を共謀指数で示している．
+図\ref{fig:algo_compare}左は，市場規模係数が固定された環境と時間変動する環境におけるDQNの学習推移を，共謀指数で重ねて示している．
 学習初期（約10,000エピソードまで）において，両エージェントは探索的な行動を示し，価格および共謀指数は大きく変動する．その後，学習の進行とともに価格は徐々に安定し，最終的に両エージェントは平均的に約6前後の行動に収束した．共謀指数は学習後半において約0.28で安定し，これは完全競争（0）と完全共謀（1）の中間的な水準である．この値は先行研究（Friedrich et al., 2025）における固定$\lambda$環境の結果と整合的である．
 
 図中の緑色破線は完全共謀価格，赤色破線は競争的ナッシュ均衡価格を示しており，学習された戦略は両者の中間に位置することが確認される．
 
 \subsubsection{λ変動環境における学習}
 
-図\ref{fig:dqn_varying}は，市場規模係数が式\eqref{eq:lambda_exp}に従って時間的に指数増加する環境の学習結果を示している．具体的には，$a=400$として，$t=1$で$\lambda_1=400$，$t=20$で$\lambda_{20}=1984$となるように設定した．変動条件においても，学習の全体的なパターンは固定条件と類似している．学習初期の探索期間を経て，両エージェントの価格は約6に収束し，共謀指数は0.28前後で安定した．
+同図の時間変動条件は，市場規模係数が式\eqref{eq:lambda_exp}に従って時間的に指数増加する環境の学習結果である．具体的には，$a=400$として，$t=1$で$\lambda_1=400$，$t=20$で$\lambda_{20}=1984$となるように設定した．変動条件においても，学習の全体的なパターンは固定条件と類似している．学習初期の探索期間を経て，両エージェントの価格は約6に収束し，共謀指数は0.28前後で安定した．
 
 \begin{figure}[tb]
 \centering
-\begin{minipage}[t]{0.45\textwidth}
+\begin{minipage}[t]{0.48\textwidth}
 \centering
-\includegraphics[width=\textwidth]{fig2_DQN-50000-fixed_collindex.png}
-\caption{固定$\lambda$環境での学習推移（DQN）}
-\label{fig:dqn_fixed}
+\includegraphics[width=\textwidth]{fig2_DQN_fixed_vs_exponential_collindex.png}
 \end{minipage}
 \hfill
-\begin{minipage}[t]{0.45\textwidth}
+\begin{minipage}[t]{0.48\textwidth}
 \centering
-\includegraphics[width=\textwidth]{fig2_DQN-50000-exponential-400_1984.524399_collindex.png}
-\caption{変動$\lambda$環境での学習推移（DQN）}
-\label{fig:dqn_varying}
+\includegraphics[width=\textwidth]{fig2_PPO_fixed_vs_exponential_collindex.png}
 \end{minipage}
+\caption{固定$\lambda$環境と変動$\lambda$環境における学習推移の比較（左：DQN，右：PPO）}
+\label{fig:algo_compare}
 \end{figure}
 
 \subsubsection{両条件の比較}
 
-図\ref{fig:dqn_fixed}と図\ref{fig:dqn_varying}を比較すると，100個のシード値で集計した範囲では，$\lambda$の固定・変動による明確な差は見られなかった．両条件において，学習された価格戦略および共謀指数の最終値はほぼ同等である．一つの可能な説明として，DQNではステップごとの遷移に基づいてQ値が更新されるため，エピソード全体にまたがる市場規模の変動パターンが，個別ステップにおける意思決定へ比較的反映されにくかった可能性がある．
+図\ref{fig:algo_compare}左を比較すると，100個のシード値で集計した範囲では，$\lambda$の固定・変動による明確な差は見られなかった．両条件において，学習された価格戦略および共謀指数の最終値はほぼ同等である．一つの可能な説明として，DQNではステップごとの遷移に基づいてQ値が更新されるため，エピソード全体にまたがる市場規模の変動パターンが，個別ステップにおける意思決定へ比較的反映されにくかった可能性がある．
 
 \subsection{PPOによる学習結果}
 
 \subsubsection{PPO（1,000エピソード）}
 
-PPOの結果を図\ref{fig:ppo_fixed}，図\ref{fig:ppo_varying}に示す．固定$\lambda$では共謀指数が約0.41に達したのに対し，時間変動$\lambda$（指数増加パターン；式\eqref{eq:lambda_exp}，$a=400$）では0.21程度に留まった．PPOはエピソード単位の軌跡から方策更新を行うため，エピソード前半（$\lambda$が小さい）での報酬尺度が後半に比べて相対的に小さい設定では，前半における協調行動の価値が学習上相対的に小さく評価された可能性がある．
-
-\begin{figure}[tb]
-  \centering
-  \begin{minipage}[t]{0.45\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{fig2_PPO-1000-fixed_collindex.png}
-    \caption{固定$\lambda$環境での学習推移（PPO）}
-    \label{fig:ppo_fixed}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[t]{0.45\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{PPO-exponential/fig2_PPO-1000-exponential-400_1984.524399_collindex.png}
-    \caption{変動$\lambda$環境での学習推移（PPO）}
-    \label{fig:ppo_varying}
-  \end{minipage}
-\end{figure}
+PPOの結果は図\ref{fig:algo_compare}右に示す．固定$\lambda$では共謀指数が約0.41に達したのに対し，時間変動$\lambda$（指数増加パターン；式\eqref{eq:lambda_exp}，$a=400$）では0.21程度に留まった．PPOはエピソード単位の軌跡から方策更新を行うため，エピソード前半（$\lambda$が小さい）での報酬尺度が後半に比べて相対的に小さい設定では，前半における協調行動の価値が学習上相対的に小さく評価された可能性がある．
 
 \subsubsection{学習済みエージェントの行動分析}
 
@@ -488,11 +469,11 @@ PPOの結果を図\ref{fig:ppo_fixed}，図\ref{fig:ppo_varying}に示す．固�
 
 指数トレンド需要（式\eqref{eq:lambda_exp}）における需要規模係数$\lambda_t$の変化速度が，共謀指数の収束水準に与える影響を検証する．図\ref{fig:visualize_demand_curve}に示した7種類の市場規模スケジュール（$a=100,200,400,800,1000,1200,1600$）を対象とし，エピソード長を$T=20$に固定した上で，合計需要量が一定となるように（式\eqref{eq:lambda_sum_constraint}）各$a$に対して$b$を一意に定めた．
 
-PPOにより各条件を100個の異なるランダムシードで学習を行い，共謀指数は学習期間のラスト10\%区間における平均値を算出して要約した．結果を表\ref{tab:ppo_exp_collusion}に示す．
+DQNおよびPPOにより各条件を100個の異なるランダムシードで学習を行い，共謀指数は式\eqref{eq:collusion_index}で定義した$\gamma=0.5$の一般化平均について，学習期間のラスト10\%区間における各seedの平均値を算出して要約した．結果を表\ref{tab:ppo_exp_collusion}に示す．
 
 \begin{table}[tb]
 \centering
-\caption{指数トレンド需要における共謀指数（PPO，100シード）}
+\caption{指数トレンド需要における共謀指数（式\eqref{eq:collusion_index}，$\gamma=0.5$の一般化平均，DQN/PPO，100シード）}
 \label{tab:ppo_exp_collusion}
 \small
 \setlength{\tabcolsep}{4pt}
@@ -500,13 +481,15 @@ PPOにより各条件を100個の異なるランダムシードで学習を行�
 \hline
 $\lambda_1(=a)$ & 100 & 200 & 400 & 800 & 1000 & 1200 & 1600 \\
 $\lambda_{20}$（整数部） & 3494 & 2752 & 1984 & 1228 & 1000 & 822 & 566 \\
-Mean CI & 0.14 & 0.16 & 0.21 & 0.30 & 0.41 & 0.48 & 0.55 \\
-Std.\ CI & 0.13 & 0.09 & 0.12 & 0.10 & 0.13 & 0.15 & 0.19 \\
+Mean CI (DQN) & 0.21 & 0.24 & 0.28 & 0.24 & 0.21 & 0.19 & 0.19 \\
+Std.\ CI (DQN) & 0.09 & 0.09 & 0.08 & 0.06 & 0.05 & 0.06 & 0.06 \\
+Mean CI (PPO) & 0.14 & 0.16 & 0.21 & 0.30 & 0.41 & 0.48 & 0.55 \\
+Std.\ CI (PPO) & 0.13 & 0.09 & 0.12 & 0.10 & 0.13 & 0.15 & 0.19 \\
 \hline
 \end{tabular}
 \end{table}
 
-表\ref{tab:ppo_exp_collusion}より，需要が後半に集中する増加シナリオほど共謀指数は低く，前半に集中する減少シナリオほど共謀指数は高い傾向が確認できる．一定需要（$a=1000, b=0$）では共謀指数は0.41であるのに対し，強い増加シナリオ（例：$a=100,\lambda_{20}=3494$）では0.14まで低下し，強い減少シナリオ（例：$a=1600,\lambda_{20}=566$）では0.55まで上昇した．
+表\ref{tab:ppo_exp_collusion}より，DQNでは需要パターンに対する共謀指数の変化は比較的小さい一方，PPOでは需要が後半に集中する増加シナリオほど共謀指数は低く，前半に集中する減少シナリオほど共謀指数は高い傾向が確認できる．PPOでは一定需要（$a=1000, b=0$）で共謀指数が0.41であるのに対し，強い増加シナリオ（例：$a=100,\lambda_{20}=3494$）では0.14まで低下し，強い減少シナリオ（例：$a=1600,\lambda_{20}=566$）では0.55まで上昇した．
 
 需要が後半に集中する条件では，終盤における需要規模（報酬の尺度）が大きくなるため，終盤での短期的な価格引下げ（逸脱）の利得が相対的に大きくなり，共謀（高価格維持）が安定しにくいと考えられる．一方，需要が前半に集中する条件では，高需要の局面が相対的に早期に現れるため，学習初期から高価格戦略が利益に結びつきやすく，結果として共謀水準が高く収束しやすい可能性がある．
 
