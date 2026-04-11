@@ -66,7 +66,7 @@ Katsuhide Fujita\orcidID{0000-0001-7867-4281}}
 
 %
 \begin{abstract}
-Pricing systems in which agents actively learn pricing strategies for products and services are increasingly being deployed. Simulation studies have shown that the autonomy of such agents can sustain price increases across competing firms without explicit communication, a phenomenon known as algorithmic collusion. Prior work on inventory-constrained pricing markets has typically assumed that demand scale remains constant over time. In this paper, we study a more realistic setting by introducing a market environment in which demand scale varies over time and examining how this affects algorithmic collusion. In experiments with Proximal Policy Optimization (PPO), we observe a negative correlation between the rate of change in demand scale and the resulting collusion index. These findings suggest that the temporal structure of demand may play an important role in the emergence of collusive behavior among learning agents.
+Pricing systems in which agents actively learn pricing strategies for products and services are increasingly being deployed. Simulation studies have shown that the autonomy of such agents can sustain price increases across competing firms without explicit communication, a phenomenon known as algorithmic collusion. Prior work on inventory-constrained pricing markets has typically assumed that demand scale remains constant over time. In this paper, we study a more realistic setting by introducing a market environment in which demand scale varies over time and examining how this affects algorithmic collusion. Our framework preserves computable competitive and collusive benchmarks, enabling numerical comparison across demand scenarios. In experiments with Proximal Policy Optimization (PPO), we observe a negative correlation between the rate of change in demand scale and the resulting collusion index. These findings suggest that the temporal structure of demand may play an important role in the emergence of collusive behavior among learning agents.
 
 \keywords{algorithmic collusion \and reinforcement learning \and inventory-constrained markets \and time-varying demand scale \and PPO}
 % keywords{First keyword  \and Second keyword \and Another keyword.}
@@ -74,32 +74,11 @@ Pricing systems in which agents actively learn pricing strategies for products a
 %
 %
 \section{Introduction}
-In recent years, firms have increasingly adopted algorithms for pricing products and services\cite{Chen2016}.
-Against the backdrop of expanding e-commerce and increasingly sophisticated data-processing infrastructure, dynamic pricing that flexibly adjusts prices in response to demand and inventory conditions has become more important.
-In such environments, fixed pricing rules designed manually are often insufficient to respond quickly to environmental changes, and data-driven approaches based on machine learning have therefore attracted growing attention.
+Pricing algorithms are increasingly used in dynamic pricing and have attracted growing attention as firms rely more on data-driven pricing systems\cite{Chen2016}. At the same time, their autonomy has raised concerns that competing firms may sustain supra-competitive prices without explicit communication, giving rise to algorithmic collusion and related challenges for consumer welfare and competition policy\cite{mehra2016,ezrachi2017,harrington2019}.
 
-At the same time, the autonomy of learning algorithms has raised concerns that they may sustain higher prices even in the absence of explicit communication among competing firms, thereby giving rise to tacit collusion through algorithms\cite{mehra2016,ezrachi2017}.
-Such outcomes may reduce consumer welfare and market efficiency, and they also create enforcement challenges because they are difficult to reconcile with the traditional competition-policy focus on explicit agreements or communication\cite{harrington2019}.
-For these reasons, understanding the conditions under which algorithms converge to collusive outcomes in competitive environments is of both academic and social importance.
+Prior research has shown that reinforcement-learning agents can endogenously develop coordinated pricing behavior in competitive environments\cite{calvano2020a}, and this line of work has been extended to questions of institutional design and welfare\cite{johnson2020}. In particular, Friedrich et al.\cite{friedrich2025learning} studied finite-horizon, inventory-constrained episodic markets, but assumed that the demand-scale factor remains constant throughout the episode.
 
-For example, Calvano et al.\cite{calvano2020a} analyzed reinforcement-learning agents in repeated Bertrand competition and showed that the agents can endogenously develop coordinated behavior supported not only by elevated prices but also by reward-punishment structures in response to deviations.
-% この知見は，プラットフォーム設計や規制設計への含意を持ち，たとえば
-This line of work has since been extended to questions of institutional design from the perspective of consumer and platform welfare\cite{johnson2020}.
-
-In particular, Friedrich et al.\cite{friedrich2025learning} showed that repeated learning by agents can produce collusive pricing in finite-horizon, inventory-constrained episodic markets.
-In that study, as in many related settings, demand scale is assumed to remain constant throughout the episode.
-In real reservation markets, however, demand scale evolves over time.
-For example, airline markets exhibit seasonal demand fluctuations, while hotel markets often experience sharp increases or decreases in demand around event periods.
-Such dynamic changes in demand scale may substantially affect firms' optimal pricing strategies and the mechanisms that sustain tacit collusion.
-
-This paper makes two main contributions.
-First, we extend the episodic inventory-constrained market model in prior work by replacing the constant demand-scale factor $\lambda$ with a time-dependent demand-scale factor $\lambda_t$.
-This yields a framework that captures temporal demand variation observed in reservation markets.
-Importantly, this extension preserves a structure in which Nash benchmark prices can still be computed within practical time limits even when demand scale varies over time, which enables numerical comparisons across different market scenarios.
-Second, using this framework, we incorporate temporal demand structure observed in reservation markets into the analysis of reinforcement-learning-based algorithmic collusion and study its effects experimentally.
-Our results show that temporal variation in demand scale affects the formation of collusion, and that the converged collusion index tends to be lower when demand scale changes more sharply.
-Moreover, the response to demand variation differs across learning algorithms: in particular, PPO exhibits substantial changes in both the level of collusion and the learned pricing strategies depending on how demand varies over time.
-Within the scope of our model, these findings suggest that the temporal structure of demand in reservation markets can play an important role in the pricing behavior learned by agents, and that temporal smoothing of demand may affect the collusion level that emerges through learning.
+In many reservation markets, however, demand scale evolves over time, which may affect firms' pricing incentives and the sustainability of collusion. This paper makes two main contributions. First, we extend the inventory-constrained episodic market model by replacing the constant demand-scale factor $\lambda$ with a time-dependent factor $\lambda_t$. This extension preserves common competitive and collusive benchmarks that remain computable within practical time limits, enabling numerical comparison across demand scenarios. Second, using this framework, we examine how temporal demand variation affects algorithmic collusion. Our results show that sharper changes in demand scale are associated with a lower converged collusion index, especially under PPO, whereas DQN is less sensitive to this variation. These findings suggest that temporal demand structure can materially affect the pricing behavior learned by algorithms.
 
 % 本論文の構成は以下の通りである．まず第2節で関連研究を概観し，第3節で在庫制約つきエピソディック市場の問題設定を与える．第4節で市場規模係数を時変化させた環境設定を述べ，第5節で固定市場規模と時変市場規模における学習結果と比較・分析を示す．最後に第6節で結論と今後の課題を述べる．
 
@@ -162,12 +141,12 @@ The reward (profit) of each firm is defined using the unit cost $c_i$ as
 R_{i,t} = (p_{i,t}-c_i)\,x_{i,t}
 \label{eq:profit_reward}
 \end{equation}
-Figure~\ref{fig:episodic_collusion_model} illustrates this sequence of events: price posting at each time step, demand realization, inventory-constrained sales, inventory updating, and profit realization.
+Following Friedrich et al.\cite{friedrich2025learning}, Fig.~\ref{fig:episodic_collusion_model} illustrates the sequence of events: price posting, demand realization, inventory-constrained sales, inventory updating, and profit realization.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.95\linewidth]{episodiccollusionmodel2.png}
-\caption{Overview of the interaction in an episodic inventory-constrained market: firms simultaneously choose prices at each time step; after demand is realized, sales are determined subject to inventory constraints, and inventories and profits are updated\cite{friedrich2025learning}.}
+\caption{Interaction flow in the episodic inventory-constrained market.}
 \label{fig:episodic_collusion_model}
 \end{figure}
 
@@ -320,7 +299,7 @@ Exponential  & 1 & 1.7037 & 1.7029 & 1.7024 & 1.7035 & 1.7031 \\
 
 Accordingly, in this paper we retain the competitive and collusive prices from the fixed-demand case as common benchmarks across all scenarios, and treat temporal variation in $\lambda_t$ primarily as an extension that changes how total demand is allocated across time within an episode.
 
-\subsection{Market-Size Scenario Design}
+\subsection{Demand-Scale Scenario Design}
 To represent reservation-market demand patterns consistent with the ABCDEF law\cite{ShintaniUmeno2023ABCDEF}, we define the demand-scale factor $\lambda_t$ by the following exponential function:
 \begin{equation}
 \lambda_t = a\exp(b(t-1))
@@ -347,7 +326,7 @@ When $a=1000$, we obtain $b=0$, corresponding to the constant-demand case.
 \begin{figure}[t]
     \centering
     \includegraphics[width=0.7\linewidth]{visualize_demand_curve.png}
-    \caption{Examples of exponential demand schedules $\lambda_t=a\exp(b(t-1))$, with $b$ adjusted so that $\sum_{t=1}^{20}\lambda_t=20000$.}
+    \caption{Exponential demand schedules with equal total demand.}
     \label{fig:visualize_demand_curve}
 \end{figure}
 
@@ -415,7 +394,7 @@ To examine how the learned policies determine prices within an episode, we inspe
 Figure~\ref{fig:ppo_eval_episode_compare} shows that, compared with the fixed-$\lambda$ environment, the time-varying-$\lambda$ environment yields lower prices in the initial steps.
 The increase in demand scale toward the end of the episode appears to reduce the relative value of collusive behavior in the first half of the episode.
 
-Figure~\ref{fig:ppo_forced_deviation_compare} further shows the price response when one agent is forced to deviate.
+Figure~\ref{fig:ppo_forced_deviation_compare} compares forced-deviation responses in the fixed-$\lambda$ case (left) and the exponentially increasing-$\lambda$ case (right); the upper and lower plots correspond to deviations at $t=1$ and $t=9$, respectively.
 In both environments, the other agent adjusts its price after a temporary deviation.
 However, in the exponentially increasing-$\lambda$ environment, the price level after returning to collusion is lower than in the fixed-$\lambda$ environment.
 This suggests that the lower initial prices do not indicate a collapse into competition; rather, collusion is still present, but at a lower level.
@@ -446,7 +425,7 @@ This suggests that the lower initial prices do not indicate a collapse into comp
     \centering
     \includegraphics[width=\textwidth]{fig3a_PPO-1000-exponential-400_1984.524399_forced_dev.png}
   \end{minipage}
-  \caption{Comparison of price responses when one agent is forced to deviate. Top: deviation at $t=1$. Bottom: deviation at $t=9$. Left: fixed $\lambda$. Right: exponentially increasing $\lambda$.}
+  \caption{Forced-deviation responses of the learned PPO policy.}
   \label{fig:ppo_forced_deviation_compare}
 \end{figure}
 
@@ -462,7 +441,7 @@ The results are shown in Table~\ref{tab:ppo_exp_collusion}.
 
 \begin{table}[tb]
 \centering
-\caption{Collusion index under exponential demand schedules (Eq.~\eqref{eq:collusion_index}, generalized mean with $\gamma=0.5$, DQN/PPO, 100 seeds).}
+\caption{Collusion index under exponential demand schedules.}
 \label{tab:ppo_exp_collusion}
 \small
 \setlength{\tabcolsep}{4pt}
