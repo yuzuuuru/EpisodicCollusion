@@ -270,43 +270,21 @@ Despite introducing time variation, this extension has the practical advantage t
 Here, the Nash benchmark price refers to the benchmark defined over the episode-level price path in Eq.~\eqref{eq:episode_price_vector}.
 % 以下でいう「ナッシュ均衡価格」および「共謀価格」は，前節で導入したエピソード全体の価格系列問題に対応する基準価格$p^N$，$p^M$（無割引設定では各期一定）を指す．
 The reason is that, under a continuous-demand approximation, the Nash benchmark price under time-varying demand scale coincides with that of the fixed-demand model.
-We explain this argument below.
-First, consider the continuous-demand approximation obtained by removing the floor function,
-$
-\tilde d_{i,t}:=\lambda_t s_{i,t}
-\label{eq:scaled_demand_relaxed}
-$
-Then, given the rivals' price paths, the optimization problem of firm $i$ can be written as follows: % 注:この最適化問題とは利益の最大化ではなく、ナッシュ均衡価格を求めるための最適化問題である。
-\begin{equation}
-\max_{(p_{i,1},\dots,p_{i,T})}
-\sum_{t=1}^{T}(p_{i,t}-c_i)\lambda_t s_{i,t}
+We explain this argument briefly. Removing the floor function gives the continuous-demand approximation $\tilde d_{i,t}:=\lambda_t s_{i,t}$. Given the rivals' price paths, firm $i$ solves
+\begin{align}
+\max_{(p_{i,1},\dots,p_{i,T})}\quad
+&\sum_{t=1}^{T}(p_{i,t}-c_i)\lambda_t s_{i,t}
 \quad
 \text{s.t.}\quad
-\sum_{t=1}^{T}\lambda_t s_{i,t}\le I_i,\ \ p_{i,t}\ge 0
-\label{eq:timevarying_lambda_relaxed_problem}
-\end{equation}
-Let $\nu_i\ge 0$ be the Lagrange multiplier associated with the inventory constraint.
-The Lagrangian is then
-\begin{equation}
+\sum_{t=1}^{T}\lambda_t s_{i,t}\le I_i,\ \ p_{i,t}\ge 0,
+\label{eq:timevarying_lambda_relaxed_problem}\\
 \mathcal{L}_i
-=
-\sum_{t=1}^{T}
-\lambda_t\bigl((p_{i,t}-c_i)-\nu_i\bigr)s_{i,t}
-+\nu_i I_i
+=\;
+&\sum_{t=1}^{T}\lambda_t\bigl((p_{i,t}-c_i)-\nu_i\bigr)s_{i,t}
++\nu_i I_i,
 \label{eq:timevarying_lambda_lagrangian}
-\end{equation}
-Because $\lambda_t>0$, for any fixed $\nu_i$ the problem of choosing the period-$t$ price $p_{i,t}$ is equivalent to maximizing
-\begin{equation}
-\bigl((p_{i,t}-c_i)-\nu_i\bigr)s_{i,t}
-\label{eq:timevarying_lambda_inner_problem}
-\end{equation}
-so $\lambda_t$ itself does not change the ordering of prices in terms of optimality.
-Therefore, under the continuous-demand approximation, $\lambda_t$ does not alter the ranking of candidate prices in each period, and when the comparison is made under
-\begin{equation}
-\sum_{t=1}^{T}\lambda_t = T\bar{\lambda}
-\label{eq:timevarying_lambda_sum}
-\end{equation}
-as in our setting, the Nash benchmark price from the fixed-demand case with $\lambda=\bar{\lambda}$ can be used as a common benchmark.
+\end{align}
+where $\nu_i\ge 0$ is the Lagrange multiplier on the inventory constraint. Because $\lambda_t>0$, for any fixed $\nu_i$ the period-$t$ choice is equivalent to maximizing $((p_{i,t}-c_i)-\nu_i)s_{i,t}$, so $\lambda_t$ itself does not change the ordering of candidate prices. Therefore, under the continuous-demand approximation, $\lambda_t$ does not alter the ranking of prices in each period, and when $\sum_{t=1}^{T}\lambda_t = T\bar{\lambda}$, as in our setting, the Nash benchmark price from the fixed-demand case with $\lambda=\bar{\lambda}$ can be used as a common benchmark.
 The same argument applies to the joint-profit-maximization problem, and hence also to the collusive benchmark price.
 
 % 厳密には上記証明は成り立たないので、その補足を次でしている。
@@ -414,12 +392,12 @@ After the initial exploration period, the prices of both agents converge to appr
 \centering
 \begin{minipage}[t]{0.48\textwidth}
 \centering
-\includegraphics[width=\textwidth]{fig2_DQN_fixed_vs_exponential_collindex.png}
+\includegraphics[width=\textwidth]{fig2_DQN_fixed_vs_exponential_collindex_cripped.png}
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.48\textwidth}
 \centering
-\includegraphics[width=\textwidth]{fig2_PPO_fixed_vs_exponential_collindex.png}
+\includegraphics[width=\textwidth]{fig2_PPO_fixed_vs_exponential_collindex_cripped.png}
 \end{minipage}
 \caption{Comparison of learning dynamics in the fixed-$\lambda$ and time-varying-$\lambda$ environments. Left: DQN. Right: PPO.}
 \label{fig:algo_compare}
