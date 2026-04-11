@@ -22,7 +22,7 @@
 % Other font encondings may result in incorrect characters.
 %
 \usepackage{graphicx}
-\graphicspath{{image/}{../jsaiac_tex_ja_utf8lf-2026_喜多村/image/}{../jsaiac_tex_ja_utf8lf-2026_喜多村/image/PPO-exponential/}}
+\graphicspath{{image/}}
 % Used for displaying a sample figure. If possible, figure files should
 % be included in EPS format.
 %
@@ -66,122 +66,118 @@ Katsuhide Fujita\orcidID{0000-0001-7867-4281}}
 
 %
 \begin{abstract}
-近年，製品やサービスの価格設定にエージェントが能動的に価格戦略を学習する機能を持つシステムの導入が進んでいる．こうしたエージェントの自律性により，競合企業間で明示的なコミュニケーションを行うことなく価格が引き上げられる現象，いわゆるアルゴリズム共謀がシミュレーション実験により確認されている．従来の在庫制約を伴う価格競争市場を対象とした研究では，顧客数や需要のスケールを表す市場規模が時間的に一定であると仮定されてきた．本研究では，より現実的な設定として，市場規模が時間とともに変動する市場環境を導入しアルゴリズム共謀に与える影響を検証することを目的とする．強化学習アルゴリズムの一種であるPPOを適用した実験において，市場規模が変化する局面では，市場規模の変化速度と共謀指数との間に負の相関が観測された．本結果は，需要の時間構造が学習エージェントの共謀形成に重要な役割を果たす可能性を示す．
+Pricing systems in which agents actively learn pricing strategies for products and services are increasingly being deployed. Simulation studies have shown that the autonomy of such agents can sustain price increases across competing firms without explicit communication, a phenomenon known as algorithmic collusion. Prior work on inventory-constrained pricing markets has typically assumed that demand scale remains constant over time. In this paper, we study a more realistic setting by introducing a market environment in which demand scale varies over time and examining how this affects algorithmic collusion. In experiments with Proximal Policy Optimization (PPO), we observe a negative correlation between the rate of change in demand scale and the resulting collusion index. These findings suggest that the temporal structure of demand may play an important role in the emergence of collusive behavior among learning agents.
 
-\keywords{アルゴリズム共謀 \and 強化学習 \and 在庫制約市場 \and 市場規模変動 \and PPO}
+\keywords{algorithmic collusion \and reinforcement learning \and inventory-constrained markets \and time-varying demand scale \and PPO}
 % keywords{First keyword  \and Second keyword \and Another keyword.}
 \end{abstract}
 %
 %
-\section{はじめに}
-近年，企業が製品・サービスの価格設定にアルゴリズムを用いる事例が増加している\cite{Chen2016}．
-eコマースの拡大やデータ処理基盤の高度化を背景に，価格を需要や在庫状況に応じて機動的に調整する動的価格付けの重要性は高まっている．
-このとき，人手で設計した固定的な価格ルールのみで環境変化へ即応することは難しく，機械学習を用いてデータ駆動的に価格戦略を最適化するアプローチが注目されている．
+\section{Introduction}
+In recent years, firms have increasingly adopted algorithms for pricing products and services\cite{Chen2016}.
+Against the backdrop of expanding e-commerce and increasingly sophisticated data-processing infrastructure, dynamic pricing that flexibly adjusts prices in response to demand and inventory conditions has become more important.
+In such environments, fixed pricing rules designed manually are often insufficient to respond quickly to environmental changes, and data-driven approaches based on machine learning have therefore attracted growing attention.
 
-一方で，学習アルゴリズムの自律性は，競合企業間に明示的なコミュニケーションが存在しない場合であっても，
-結果として価格の引き上げが維持されるような振る舞い（アルゴリズムによる暗黙的共謀）を生じ得るとの懸念が存在する\cite{mehra2016,ezrachi2017}．
-この種の現象は，消費者厚生の低下や市場効率性の損失につながり得るだけでなく，
-伝統的な競争政策が想定してきた合意や意思疎通の立証が困難である点で，執行面での課題が生じる\cite{harrington2019}．
-以上の背景から，アルゴリズムが競争環境下でどのような条件のもと共謀的結果へ収束するのかを明らかにすることは，学術的・社会的に重要である．
+At the same time, the autonomy of learning algorithms has raised concerns that they may sustain higher prices even in the absence of explicit communication among competing firms, thereby giving rise to tacit collusion through algorithms\cite{mehra2016,ezrachi2017}.
+Such outcomes may reduce consumer welfare and market efficiency, and they also create enforcement challenges because they are difficult to reconcile with the traditional competition-policy focus on explicit agreements or communication\cite{harrington2019}.
+For these reasons, understanding the conditions under which algorithms converge to collusive outcomes in competitive environments is of both academic and social importance.
 
-例えば，Calvanoら\cite{calvano2020a}は反復ベルトラン競争における強化学習エージェントを分析し，
-単なる高価格化にとどまらず，逸脱に対する報酬・懲罰構造を伴う協調的行動が内生的に形成され得ることを示し，
+For example, Calvano et al.\cite{calvano2020a} analyzed reinforcement-learning agents in repeated Bertrand competition and showed that the agents can endogenously develop coordinated behavior supported not only by elevated prices but also by reward-punishment structures in response to deviations.
 % この知見は，プラットフォーム設計や規制設計への含意を持ち，たとえば
-消費者とプラットフォーマーの厚生の観点から制度設計を検討する研究などへと発展している\cite{johnson2020}．
+This line of work has since been extended to questions of institutional design from the perspective of consumer and platform welfare\cite{johnson2020}.
 
-特にFriedrichらは，在庫制約を伴う有限期間（エピソディック）市場を対象に，エージェント同士が反復的に学習することで共謀的な価格形成が生じ得ることを示した\cite{friedrich2025learning}．同研究を含む多くの設定では，需要のスケールを表す市場規模が期間を通じて一定と仮定されている．しかし，現実の予約市場では市場規模（需要）は時間とともに変動する．例えば，航空市場では季節性による需要変動，ホテル市場ではイベント開催時期による需要の急増・急減などが観察される．このような市場規模の動的変化は，企業の最適価格設定戦略，および暗黙的共謀の維持メカニズムに重大な影響を及ぼす可能性がある．
+In particular, Friedrich et al.\cite{friedrich2025learning} showed that repeated learning by agents can produce collusive pricing in finite-horizon, inventory-constrained episodic markets.
+In that study, as in many related settings, demand scale is assumed to remain constant throughout the episode.
+In real reservation markets, however, demand scale evolves over time.
+For example, airline markets exhibit seasonal demand fluctuations, while hotel markets often experience sharp increases or decreases in demand around event periods.
+Such dynamic changes in demand scale may substantially affect firms' optimal pricing strategies and the mechanisms that sustain tacit collusion.
 
-本研究の主な貢献は2点ある．第一に，先行研究のエピソディック・在庫制約市場モデルを拡張し，市場規模係数$\lambda$を時間依存の$\lambda_t$として導入することで，予約市場にみられる需要の時間変動を表現する枠組みを構築した．特に，この拡張は，需要規模が時間変動する場合にもナッシュ均衡価格を現実的な計算時間で算出可能な構造を維持しており，異なる市場間の数値比較を可能にしている．第二に，この枠組みを用いて，現実の予約市場にみられる需要の時間構造を強化学習に基づくアルゴリズム共謀の分析へ導入し，その影響を実験的に分析した．実験の結果，市場規模の時間変動は共謀の形成に影響を及ぼし，特に市場規模の変化が急であるほど共謀指数の収束水準が低くなる傾向が確認された．さらに，需要変動に対する応答は学習手法によって異なり，特にPPOでは需要変動の与え方に応じて，共謀水準や学習される価格戦略が大きく変化することを見いだした．これらの結果は，本モデルの範囲では，予約市場における需要の時間構造が学習エージェントの価格形成に重要な役割を果たしうることを示すとともに，需要の時間的平準化が学習された共謀水準に影響する可能性を示唆している．
+This paper makes two main contributions.
+First, we extend the episodic inventory-constrained market model in prior work by replacing the constant demand-scale factor $\lambda$ with a time-dependent demand-scale factor $\lambda_t$.
+This yields a framework that captures temporal demand variation observed in reservation markets.
+Importantly, this extension preserves a structure in which Nash benchmark prices can still be computed within practical time limits even when demand scale varies over time, which enables numerical comparisons across different market scenarios.
+Second, using this framework, we incorporate temporal demand structure observed in reservation markets into the analysis of reinforcement-learning-based algorithmic collusion and study its effects experimentally.
+Our results show that temporal variation in demand scale affects the formation of collusion, and that the converged collusion index tends to be lower when demand scale changes more sharply.
+Moreover, the response to demand variation differs across learning algorithms: in particular, PPO exhibits substantial changes in both the level of collusion and the learned pricing strategies depending on how demand varies over time.
+Within the scope of our model, these findings suggest that the temporal structure of demand in reservation markets can play an important role in the pricing behavior learned by agents, and that temporal smoothing of demand may affect the collusion level that emerges through learning.
 
 % 本論文の構成は以下の通りである．まず第2節で関連研究を概観し，第3節で在庫制約つきエピソディック市場の問題設定を与える．第4節で市場規模係数を時変化させた環境設定を述べ，第5節で固定市場規模と時変市場規模における学習結果と比較・分析を示す．最後に第6節で結論と今後の課題を述べる．
 
 
-\section{関連研究}
+\section{Related Work}
 
-反復価格競争において，Q学習ベースの価格設定アルゴリズムが，企業間の明示的なコミュニケーションなしに超競争的価格へ収束し得ることが示されている\cite{calvano2020a,klein2021}．特にCalvanoら\cite{calvano2020a}は，反復ベルトラン競争の標準的な寡占環境において，有限の懲罰局面を伴う共謀的戦略が内生的に形成され得ることを報告している．また，このようなアルゴリズム価格設定が競争政策・法政策に与える含意については，サーベイおよび制度設計の観点からも整理が進められている\cite{calvano2020b,harrington2019}．
+In repeated pricing games, Q-learning-based pricing algorithms have been shown to converge to supra-competitive prices even without explicit communication among firms\cite{calvano2020a,klein2021}.
+In particular, Calvano et al.\cite{calvano2020a} reported that collusive strategies supported by finite punishment phases can arise endogenously in a standard repeated Bertrand oligopoly.
+The implications of such algorithmic pricing for competition law and policy have also been discussed from the perspectives of both survey work and institutional design\cite{calvano2020b,harrington2019}.
 
-この種の研究では，企業が独立した価格設定アルゴリズムを用いて単一製品の価格を繰り返し選択する反復ベルトラン競争が基本環境として広く用いられている\cite{calvano2020a,klein2021}．深層強化学習を用いた拡張として，Hettichら\cite{hettich2021}はDQN\cite{mnih2015}を導入し，表形式Q学習より大きな状態空間を扱える枠組みを示した．さらに，PPOやDQNを含む深層強化学習ベースの価格競争においても，共謀的価格形成やその程度の差異が分析されている\cite{Schlechtinger2024,deng2024algorithmic}．加えて，policy-gradient型の連続価格設定を扱う研究\cite{martello2022autonomous}や，価格アルゴリズムの競争効果を実証・理論の両面から分析する研究\cite{brown2021,assad2020,Abada2020,Sanchez-Cartas2022}も存在する．
-
-\subsection{エピソディック・在庫制約市場での共謀学習}
-現実の多くの市場は有限期間で区切られ，かつ在庫（供給）制約を伴う．例えば航空券やホテル，期限のある商品では，販売期間（エピソード）の終了とともに販売機会が消失し，さらに各企業は有限の供給量のもとで収益最大化を行う必要がある．このような有限期間設定では，エピソード終盤になるほど懲罰の信用性が低下するため，逆向き帰納法に基づけば共謀は理論的に成立しないという見方がある．それにもかかわらず，学習アルゴリズムは同一の相手と複数エピソードにわたり反復的に相互作用することで，実験的には共謀的行動を獲得し得ることが示された\cite{friedrich2025learning}．
+Much of this literature adopts repeated Bertrand competition as the basic environment, in which firms repeatedly choose the price of a single product using independent pricing algorithms\cite{calvano2020a,klein2021}.
+As a deep-reinforcement-learning extension, Hettich\cite{hettich2021} introduced DQN\cite{mnih2015}, providing a framework that can handle larger state spaces than tabular Q-learning.
+More recent work has also analyzed collusive pricing and differences in its degree in deep-reinforcement-learning-based pricing games using PPO, DQN, and related methods\cite{Schlechtinger2024,deng2024algorithmic}.
+There are also studies on continuous pricing with policy-gradient methods\cite{martello2022autonomous}, as well as work that analyzes the competitive effects of pricing algorithms from both empirical and theoretical perspectives\cite{brown2021,assad2020,Abada2020,Sanchez-Cartas2022}.
+Most of these studies observe only the prices determined by algorithms, whereas many real markets are subject to inventory constraints.
+Friedrich et al.\cite{friedrich2025learning} showed that when learning algorithms observe both prices and inventories across repeated episodes, they can experimentally acquire collusive behavior in finite-horizon inventory-constrained markets.
 % 同研究では在庫制約つきの有限期間価格競争を，有限期間マルコフゲームとして定式化し，エージェントの暗黙的共謀を分析した．各時刻で企業は価格を同時に選択し，需要に応じて販売が発生し，在庫が更新される．
+Shintani et al.\cite{ShintaniUmeno2023ABCDEF} analyzed the temporal structure of average booking curves in reservation markets using real booking data from the hotel and rental-car industries.
+Here, an average booking curve denotes the average cumulative number of bookings as a function of the remaining time $t$ until the deadline, aggregated across booking curves from multiple dates.
+They showed that the average booking curve can be approximated by the exponential form $E[X(t)] \simeq A\exp(-\beta t)$ and referred to this regularity as the ABCDEF (Average Booking Curves Draw Exponential Functions) law.
 
-\subsection{予約市場における予約曲線の指数的性質}
-Shintaniら\cite{ShintaniUmeno2023ABCDEF}は，ホテルおよびレンタカー業界の実予約データを用いて，予約市場における平均予約曲線の時間構造を分析している．ここで平均予約曲線とは，締切日までの残り時間$t$に対する累積予約数を，複数日の予約曲線について平均したものである．Shintaniらは，この平均予約曲線が$E[X(t)] \simeq A\exp(-\beta t)$という指数関数で近似できることを示し，これをABCDEF（Average Booking Curves Draw Exponential Functions）lawと呼んでいる．
-\if 0
-さらに同研究では，この指数的形状が複数の施設や異なる経済環境（COVID-19前後）においても広く観測されることを実証し，予約行動の時間的分布が環境に応じて変化しつつも，指数関数という単純な形で記述可能であることを明らかにしている．指数パラメータ$\beta$は予約の進行速度を表し，予約が早期に集中する環境ほど大きく，直前予約が多い環境ほど小さくなることが報告されている．
+Ito et al.\cite{ItoEtAl2024ReservationTiming} further analyzed booking timing and the temporal change in cancellation probabilities using hotel-booking data from a Japanese online travel agent (OTA), and showed that these patterns can be represented as sums of exponential functions of the days until stay and the elapsed days after booking.
 
-この結果は，予約市場において需要の到着が時間的に非一様であり，締切に向かって加速または減速する構造を持つことを示唆している．この知見は予約市場を扱うシミュレーションや動的価格設定モデルにおける需要の時間構造を考える上で重要である．
-\fi
-また，Itoら\cite{ItoEtAl2024ReservationTiming}は，日本のオンライン旅行代理店（OTA）の予約データを用いて，宿泊予約の予約タイミングおよびキャンセル確率の時間変化を分析し，これらが宿泊日までの日数や予約後経過日数に関する複数の指数関数の和として表現可能であることを示している．
-
-\section{問題設定}
+\section{Problem Statement}
 \label{sec:problem_statement}
 
-Friedrichら\cite{friedrich2025learning}の設定に基づき，在庫制約つきの有限期間（エピソディック）市場における価格競争を定式化する．
+Based on the setting of Friedrich et al.\cite{friedrich2025learning}, we formulate price competition in a finite-horizon (episodic), inventory-constrained market.
 
-\subsection{エピソディックマルコフゲームとしての定式化}
-市場での相互作用を，長さ$T$のエピソード（販売期間）からなる多エージェント意思決定問題として表す．
-エピソード内の各時刻$t=1,\dots,T$で，企業（エージェント）は同時に価格を選び，その結果に応じて需要・販売・在庫が更新され，利潤が報酬として与えられる．
+\subsection{Formulation as an Episodic Markov Game}
+We model the market interaction as a multi-agent decision problem consisting of episodes of length $T$ (the selling horizon).
+At each time step $t=1,\dots,T$ within an episode, firms (agents) simultaneously choose prices, after which demand, sales, and inventories are updated and profits are given as rewards.
 
-以下ではこの状況を，エピソディックマルコフゲームとして
+We represent this setting as an episodic Markov game
 $(\mathcal{S}, \mathcal{A}, P, \{R_i\}_{i=1}^N, T)$
-で表す（$N$は企業数）．
-ここで$\mathcal{S}$は状態空間，$\mathcal{A}=\mathcal{A}_1\times\cdots\times\mathcal{A}_N$は同時行動（価格）の直積空間，
-$P$は状態遷移，$R_i$は企業$i$の報酬（利潤）である．
-企業$i$は各時刻に状態を観測し，方策$\pi_i$に従って価格（行動）を選ぶ．
+with $N$ firms.
+Here, $\mathcal{S}$ is the state space, $\mathcal{A}=\mathcal{A}_1\times\cdots\times\mathcal{A}_N$ is the joint action space of simultaneous pricing actions, $P$ is the state-transition function, and $R_i$ is the reward (profit) of firm $i$.
+At each time step, firm $i$ observes the state and chooses a price action according to its policy $\pi_i$.
 % 有限期間市場ではエピソード終端までの残り時間に応じて最適な価格戦略が変化し得るため，本研究では現在時刻$t$を状態に含めることで，方策がエピソード内の時間位置に条件づけられるようにする．
 
-\subsection{市場モデル：価格，販売，在庫，報酬}
-企業$i\in\{1,\dots,N\}$は，各時刻$t$に価格$p_{i,t}\ge 0$を同時に提示する．
-各企業にはエピソード全体で販売できる最大数量（初期在庫）$I_i\in\mathbb{N}$があり，時刻$t$での在庫残量を$I_{i,t}\in\{0,1,\dots,I_i\}$とする．
-価格ベクトルを$p_t=(p_{1,t},\dots,p_{N,t})$，在庫ベクトルを$I_t=(I_{1,t},\dots,I_{N,t})$と書く．
+\subsection{Market Model: Prices, Sales, Inventory, and Rewards}
+Each firm $i\in\{1,\dots,N\}$ simultaneously posts a price $p_{i,t}\ge 0$ at each time step $t$.
+Each firm has a maximum quantity it can sell over the entire episode, that is, an initial inventory $I_i\in\mathbb{N}$, and we denote the remaining inventory at time $t$ by $I_{i,t}\in\{0,1,\dots,I_i\}$.
+Let $p_t=(p_{1,t},\dots,p_{N,t})$ denote the price vector and $I_t=(I_{1,t},\dots,I_{N,t})$ the inventory vector.
 
-状態は「直前の価格」，「現在の在庫」，および「現在時刻」で表す．
-\begin{equation}
-s_t = (p_{t-1}, I_t, t)
-\label{eq:state_definition}
-\end{equation}
+The state consists of the previous prices, the current inventory, and the current time step, written as $s_t = (p_{t-1}, I_t, t)$.
 % これは，直前の価格が競争・協調いずれの戦略にとっても重要な情報となり得ることに加え，有限期間市場ではエピソード終盤に近づくほど逸脱や懲罰の誘因が変化するため，現在時刻も戦略決定に重要な情報となり得ることを踏まえた選択である．
-ただし$t=1$では$p_0$を初期価格ベクトルとして外生的に与える．
+At $t=1$, however, $p_0$ is given exogenously as the initial price vector.
 
-各時刻で価格が決まると，需要が発生し，販売量が在庫で上限制約される．
-販売量を$x_{i,t}$，需要量（在庫制約をかける前の整数需要）を$d_{i,t}$として，
+Once prices are set at each time step, demand is realized and sales are capped by the available inventory.
+Let $x_{i,t}$ denote the sales quantity and $d_{i,t}$ the demand quantity (the integer demand before imposing the inventory constraint):
 \begin{equation}
 x_{i,t}=\min\{d_{i,t}, I_{i,t}\},
 \qquad
 I_{i,t+1}=I_{i,t}-x_{i,t}
 \label{eq:inventory_update}
 \end{equation}
-により在庫が更新される．
-各企業の報酬（利潤）は，単位費用$c_i$を用いて
+The inventory is updated according to the above equation.
+The reward (profit) of each firm is defined using the unit cost $c_i$ as
 \begin{equation}
 R_{i,t} = (p_{i,t}-c_i)\,x_{i,t}
 \label{eq:profit_reward}
 \end{equation}
-と定義される．
-以上の一連の流れ（各時刻における価格提示$\rightarrow$需要発生$\rightarrow$在庫制約下での販売$\rightarrow$在庫更新$\rightarrow$利潤獲得）を図\ref{fig:episodic_collusion_model}に示す．
+Figure~\ref{fig:episodic_collusion_model} illustrates this sequence of events: price posting at each time step, demand realization, inventory-constrained sales, inventory updating, and profit realization.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.8\linewidth]{episodiccollusionmodel.png}
-\caption{エピソディック在庫制約市場における相互作用の概要：企業は各時刻に価格を同時に選択し，需要が発生した後，在庫制約の下で販売量が決まり，在庫と利潤が更新される\cite{friedrich2025learning}}
+\includegraphics[width=0.95\linewidth]{episodiccollusionmodel2.png}
+\caption{Overview of the interaction in an episodic inventory-constrained market: firms simultaneously choose prices at each time step; after demand is realized, sales are determined subject to inventory constraints, and inventories and profits are updated\cite{friedrich2025learning}.}
 \label{fig:episodic_collusion_model}
 \end{figure}
 
-\subsection{需要モデル：在庫可用性を反映したMNL}
-需要は，多項ロジット（MNL）型の選択モデルを用いて表す．
-このモデルでは，各企業の「魅力度」を（品質$q_i$と価格$p_{i,t}$から）$\exp((q_i-p_{i,t})/\mu)$で与え，その相対比として需要が分配される．
-$\mu>0$は水平差別化の強さ（価格差への感度のスケール）を表すパラメータである．
+\subsection{Demand Model: MNL with Inventory Availability}
+Demand is modeled using a multinomial logit (MNL) choice model.
+In this model, the attractiveness of each firm is given by $\exp((q_i-p_{i,t})/\mu)$ as a function of quality $q_i$ and price $p_{i,t}$, and demand is allocated according to the relative magnitudes of these terms.
+The parameter $\mu>0$ represents the degree of horizontal differentiation, that is, the scale of sensitivity to price differences.
 
-outside option（購入しない選択肢）を含め，かつ売り切れ企業への需要を他社に代替させるために，
-在庫が残っている企業の集合
-\begin{equation}
-\mathcal{N}_t^{a}:=\{\,j\in\{1,\dots,N\}\mid I_{j,t}>0\,\}
-\label{eq:available_set}
-\end{equation}
-のみを分母に含める．
-このとき企業$i$の需要シェア（正規化需要）$s_{i,t}\in(0,1)$を
+To include the outside option (not purchasing) and allow demand from sold-out firms to be substituted to other firms, we include in the denominator only the set of firms with remaining inventory, $\mathcal{N}_t^{a}:=\{\,j\in\{1,\dots,N\}\mid I_{j,t}>0\,\}$.
+The demand share (normalized demand) of firm $i$, denoted by $s_{i,t}\in(0,1)$, is then defined as
 \begin{equation}
 s_{i,t}
 =
@@ -192,41 +188,38 @@ s_{i,t}
 }
 \label{eq:mnl_share}
 \end{equation}
-と定義する．ここで$q_0$はoutside optionの品質（垂直差別化）である．
+where $q_0$ denotes the quality of the outside option, corresponding to vertical differentiation.
 
-需要規模（市場の大きさ）を表すスケール係数を$\lambda\in\mathbb{N}$として，整数の需要量は
+Let $\lambda\in\mathbb{N}$ be the demand-scale factor.
+The integer demand quantity is given by
 \begin{equation}
 d_{i,t}=\left\lfloor \lambda\, s_{i,t} \right\rfloor
 \label{eq:scaled_demand_const}
 \end{equation}
-で与えられる．
-式\eqref{eq:inventory_update}により，実際の販売量は在庫残量によって制限される．
+The actual sales quantity is then limited by the remaining inventory through Eq.~\eqref{eq:inventory_update}.
 
-上式より，需要は需要シェア$s_{i,t}$に比例して決まり，$s_{i,t}$は価格$p_{i,t}$が高いほど小さくなる．
+Thus, demand is proportional to the demand share $s_{i,t}$, and $s_{i,t}$ decreases as the price $p_{i,t}$ increases.
 
-\subsection{競争・共謀の基準と共謀指数}
-観測されたエピソード（あるいは方策）が「競争的」か「共謀的」かを定量化するため，
-基準としてナッシュ均衡（competitive / Nash equilibrium）と独占最適（collusive / monopolistic optimum）を行動空間上で定義する．
-さらに，競争水準からどれだけ価格が上昇しているかを測るため，0から1の範囲で共謀指数を定義する．
+\subsection{Competitive and Collusive Benchmarks and the Collusion Index}
+To quantify whether an observed episode (or policy) is competitive or collusive, we define two benchmarks in the space of actions: the competitive benchmark given by the Nash equilibrium and the collusive benchmark given by the monopolistic optimum.
+We then define a collusion index on the interval from 0 to 1 to measure how far prices rise above the competitive level.
 
-ここでいう競争基準は，各時点ごとの静学的な価格均衡ではない．
-在庫制約の下では，ある期の価格設定が当期の需要だけでなく将来の在庫残量と将来利潤にも影響するため，
-各企業は各時点の価格を独立に選ぶのではなく，エピソード開始時点で価格系列
+The competitive benchmark here is not a static price equilibrium defined separately at each time step.
+Under inventory constraints, a price chosen in one period affects not only current demand but also future inventory levels and future profits.
+Therefore, competition must be viewed as a problem in which each firm chooses the entire price path
 \begin{equation}
 p_i=(p_{i,1},\dots,p_{i,T})
 \label{eq:episode_price_vector}
 \end{equation}
-全体を選ぶ問題として競争を捉える必要がある．
-したがって，本研究におけるナッシュ均衡とは，相手企業の価格系列を固定したとき，
-どの企業も自社の価格系列全体を一方的に変更してもエピソード総利潤を増やせない状態を指す．
-同様に，共謀基準は全企業の価格系列全体を同時に選んで総利潤を最大化する解として定義される．
-先行研究\cite{friedrich2025learning}では，無割引設定の下で，この競争解と共同利潤最大化解はいずれも各期で同一価格を繰り返す形で表されることが示されている．
-そこで本稿では，その反復される基準価格をそれぞれ競争価格$p^N$，共謀価格$p^M$と呼び，
-それらの価格を各期に適用したときに式\eqref{eq:profit_reward}によって計算される利潤
-$R^N_{i,t}$，$R^M_{i,t}$を共謀指数の基準として用いる．
+at the start of the episode rather than choosing prices independently period by period.
+Accordingly, the Nash equilibrium in this paper is defined as a state in which, given the rivals' price paths, no firm can increase its total episode profit by unilaterally changing its own entire price path.
+Similarly, the collusive benchmark is defined as the solution that maximizes total profit by jointly choosing the entire set of firms' price paths.
+Under the no-discounting setting, Friedrich et al.\cite{friedrich2025learning} showed that both the competitive solution and the joint-profit-maximizing solution can be represented by repeating the same price in every period.
+We therefore refer to these repeated benchmark prices as the competitive price $p^N$ and the collusive price $p^M$, respectively, and use the corresponding profits
+$R^N_{i,t}$ and $R^M_{i,t}$, computed by applying these prices in each period through Eq.~\eqref{eq:profit_reward}, as the benchmarks for the collusion index.
 
 
-具体的には，企業$i$のエピソード利得（episodic profit gain）を
+Specifically, we define the episode-level profit gain of firm $i$ as
 \begin{equation}
 \Delta_{i,e}
 :=
@@ -234,56 +227,56 @@ $R^N_{i,t}$，$R^M_{i,t}$を共謀指数の基準として用いる．
 \frac{\bar{R}_{i,t}-R^N_{i,t}}{R^M_{i,t}-R^N_{i,t}}
 \label{eq:episodic_profit_gain}
 \end{equation}
-と定義する．
-ここで$\bar{R}_{i,t}$は観測された（実現した）利潤，$R^N_{i,t}$と$R^M_{i,t}$はそれぞれナッシュ均衡（競争）および独占最適（共謀）を基準にした利潤である．本稿では観測された実現値をバー付きで表す．
-この$\Delta_{i,e}$を企業間で集約し，エピソード共謀指数$\Delta_e$を一般化平均（generalized mean）
+where $\bar{R}_{i,t}$ is the observed (realized) profit, and $R^N_{i,t}$ and $R^M_{i,t}$ are the benchmark profits under the Nash equilibrium (competition) and the monopolistic optimum (collusion), respectively.
+Throughout this paper, realized quantities are denoted with bars.
+Aggregating $\Delta_{i,e}$ across firms, we define the episode-level collusion index $\Delta_e$ by the generalized mean
 \begin{equation}
 \Delta_{e}
 :=
 \left(\frac{1}{N}\sum_{i=1}^{N}\Delta_{i,e}^{\gamma}\right)^{1/\gamma}
 \label{eq:collusion_index}
 \end{equation}
-で定める．
-ただし，$\Delta_{i,e}<0$となる場合を含めて解釈できるよう，実際の計算では$\Delta_{i,e}^{\gamma}$の代わりに$\mathrm{sgn}(\Delta_{i,e})|\Delta_{i,e}|^{\gamma}$を用いる．
-実験では$\gamma=0.5$を用い，単純平均よりも一方的な逸脱（片方だけが競争的行動を取る状況）を強く検出する性質を持たせている．
-実験では，各企業の行動空間を連続価格ではなく15個の離散価格からなる価格グリッドとして与える．具体的には，利用可能な価格を区間$[\,p^N-\xi(p^M-p^N),\,p^M+\xi(p^M-p^N)\,]$を$\xi=0.2$の下で等間隔に15分割して構成し，競争価格と共謀価格に対応する行動インデックスはそれぞれ$a^N=2$，$a^M=12$とする．
+To preserve interpretability even when $\Delta_{i,e}<0$, in the actual computation we replace $\Delta_{i,e}^{\gamma}$ with $\mathrm{sgn}(\Delta_{i,e})|\Delta_{i,e}|^{\gamma}$.
+In the experiments, we use $\gamma=0.5$, which makes the index more sensitive than a simple average to unilateral deviations, that is, situations in which only one firm behaves competitively.
+The action space of each firm is given not by continuous prices but by a price grid consisting of 15 discrete prices.
+Specifically, the available prices are constructed by equally dividing the interval $[\,p^N-\xi(p^M-p^N),\,p^M+\xi(p^M-p^N)\,]$ into 15 points with $\xi=0.2$, and the action indices corresponding to the competitive and collusive prices are set to $a^N=2$ and $a^M=12$, respectively.
 
 % chapter 3
 % ここにあった実験設定Settings of experimentはsection 5に移動しました
 
 % chapter 4
-\section{実験設計}
+\section{Experimental Design}
 \label{sec:method_timevarying_lambda}
 
-ここでは，固定需要モデルを時間変動需要へ拡張した実験環境を述べる．
-この拡張の狙いは，需要総量や需要シェアの計算を保ったままその時間配分だけを変化させることで，競争価格・共謀価格という比較基準を原則として据え置ける形で非定常需要を導入する点にある．
-これにより，各ステップごとにナッシュ均衡価格の再計算を必要としなくなるため、現実的な計算時間で需要の時間変動を評価できる．
+We now describe the experimental environment obtained by extending the fixed-demand model to a time-varying-demand setting.
+The aim of this extension is to introduce non-stationary demand while preserving, in principle, the benchmark competitive and collusive prices by changing only the temporal allocation of total demand and leaving the overall demand calculation and demand shares intact.
+This avoids the need to recompute the Nash benchmark price at every time step and therefore makes it possible to evaluate temporal demand variation within practical computation times.
 
-\subsection{需要規模係数の時間関数化}
-先行研究\cite{friedrich2025learning}では，需要規模係数$\lambda$はエピソードを通じて一定である．
-本研究では$\lambda$を時刻$t$に依存する$\lambda_t$へ拡張し，エピソード内で需要水準が変動する状況を表現する．
+\subsection{Time-Varying Demand-Scale Factor}
+In prior work\cite{friedrich2025learning}, the demand-scale factor $\lambda$ is constant throughout the episode.
+In this paper, we extend $\lambda$ to a time-dependent factor $\lambda_t$ to represent settings in which the demand level varies within an episode.
 % この拡張では，需要関数の形，在庫更新則，報酬構造はそのまま保ち，需要規模のみを時刻依存にする．
 % したがって，固定$\lambda$モデルに対する最小限かつ自然な一般化になっている．
 
-なお，本研究では$\lambda_t>0$は実数として扱い（整数に限らない），需要量は床関数により整数化される．
-このとき，需要量は式\eqref{eq:scaled_demand_const}の$\lambda$を$\lambda_t$に置き換え
+In our model, $\lambda_t>0$ is treated as a positive real number rather than being restricted to integers, and the resulting demand quantity is discretized by a floor function.
+Accordingly, the demand quantity is obtained by replacing $\lambda$ in Eq.~\eqref{eq:scaled_demand_const} with $\lambda_t$:
 \begin{equation}
 d_{i,t}=\left\lfloor \lambda_t\, s_{i,t} \right\rfloor
 \label{eq:scaled_demand}
 \end{equation}
-とする．
-販売量と在庫更新は式\eqref{eq:inventory_update}に従う．
+Sales and inventory updates then follow Eq.~\eqref{eq:inventory_update}.
 
-この拡張は時間変動するモデルであるにもかかわらず、各期でのナッシュ均衡価格の再計算を必要としないという利点がある。ここでのナッシュ均衡価格については、式\eqref{eq:episode_price_vector}で定義されるものを指す。
+Despite introducing time variation, this extension has the practical advantage that it does not require recomputing the Nash benchmark price in every period.
+Here, the Nash benchmark price refers to the benchmark defined over the episode-level price path in Eq.~\eqref{eq:episode_price_vector}.
 % 以下でいう「ナッシュ均衡価格」および「共謀価格」は，前節で導入したエピソード全体の価格系列問題に対応する基準価格$p^N$，$p^M$（無割引設定では各期一定）を指す．
-この拡張がナッシュ均衡価格の再計算を必要としない理由は需要規模変動下におけるナッシュ均衡価格が固定需要モデルのナッシュ均衡価格と同一だからである．以下では同一になる理由を説明する。
-まず，床関数を外した連続需要近似
-\begin{equation}
+The reason is that, under a continuous-demand approximation, the Nash benchmark price under time-varying demand scale coincides with that of the fixed-demand model.
+We explain this argument below.
+First, consider the continuous-demand approximation obtained by removing the floor function,
+$
 \tilde d_{i,t}:=\lambda_t s_{i,t}
 \label{eq:scaled_demand_relaxed}
-\end{equation}
-を考える．
-このとき，相手企業の価格系列を固定した下での企業$i$の最適化問題は % 注:この最適化問題とは利益の最大化ではなく、ナッシュ均衡価格を求めるための最適化問題である。
+$
+Then, given the rivals' price paths, the optimization problem of firm $i$ can be written as follows: % 注:この最適化問題とは利益の最大化ではなく、ナッシュ均衡価格を求めるための最適化問題である。
 \begin{equation}
 \max_{(p_{i,1},\dots,p_{i,T})}
 \sum_{t=1}^{T}(p_{i,t}-c_i)\lambda_t s_{i,t}
@@ -292,8 +285,8 @@ d_{i,t}=\left\lfloor \lambda_t\, s_{i,t} \right\rfloor
 \sum_{t=1}^{T}\lambda_t s_{i,t}\le I_i,\ \ p_{i,t}\ge 0
 \label{eq:timevarying_lambda_relaxed_problem}
 \end{equation}
-と書ける．
-この在庫制約に対するラグランジュ乗数を$\nu_i\ge 0$とすると，ラグラジアンは
+Let $\nu_i\ge 0$ be the Lagrange multiplier associated with the inventory constraint.
+The Lagrangian is then
 \begin{equation}
 \mathcal{L}_i
 =
@@ -302,27 +295,26 @@ d_{i,t}=\left\lfloor \lambda_t\, s_{i,t} \right\rfloor
 +\nu_i I_i
 \label{eq:timevarying_lambda_lagrangian}
 \end{equation}
-となる．
-ここで$\lambda_t>0$であるため，固定した$\nu_i$の下で各期$t$の価格$p_{i,t}$を選ぶ問題は，
+Because $\lambda_t>0$, for any fixed $\nu_i$ the problem of choosing the period-$t$ price $p_{i,t}$ is equivalent to maximizing
 \begin{equation}
 \bigl((p_{i,t}-c_i)-\nu_i\bigr)s_{i,t}
 \label{eq:timevarying_lambda_inner_problem}
 \end{equation}
-を最大化する問題と同値であり，$\lambda_t$そのものは「どの価格が最適か」という順序を変えない．
-したがって，連続需要近似の下では，$\lambda_t$は各期の価格選択の優劣順序を変えず，本研究のように
+so $\lambda_t$ itself does not change the ordering of prices in terms of optimality.
+Therefore, under the continuous-demand approximation, $\lambda_t$ does not alter the ranking of candidate prices in each period, and when the comparison is made under
 \begin{equation}
 \sum_{t=1}^{T}\lambda_t = T\bar{\lambda}
 \label{eq:timevarying_lambda_sum}
 \end{equation}
-を満たすように比較する場合には，固定需要$\lambda=\bar{\lambda}$のケースで用いたナッシュ均衡価格をそのまま比較基準として用いることができる．
-同様の議論は共同利潤最大化問題に対しても成り立つため，共謀価格についても同様である．
+as in our setting, the Nash benchmark price from the fixed-demand case with $\lambda=\bar{\lambda}$ can be used as a common benchmark.
+The same argument applies to the joint-profit-maximization problem, and hence also to the collusive benchmark price.
 
 % 厳密には上記証明は成り立たないので、その補足を次でしている。
-一方で，本研究で実際に用いるモデルでは需要量は式\eqref{eq:scaled_demand}のように
-$\lfloor \lambda_t s_{i,t}\rfloor$で与えられる．
-このとき$\lambda_t$は床関数の内側に入るため，上記の不変性は厳密には保証されない．
-ただし，これは離散化に伴う境界効果であり，本研究の主たる比較軸ではない．
-補足的に，固定需要，線形需要，指数需要の各シナリオについて競争価格を数値的に再計算したところ，線形需要では固定需要ケースと全期で一致し，指数需要でも固定需要ケースとの差は最大でも0.0007（約0.04\%）にとどまった．
+In the model actually used in our experiments, however, demand is given by $\lfloor \lambda_t s_{i,t}\rfloor$ as in Eq.~\eqref{eq:scaled_demand}.
+Because $\lambda_t$ appears inside the floor function, the invariance described above is not guaranteed in a strict sense.
+This discrepancy is a boundary effect induced by discretization and is not the main axis of comparison in this paper.
+As a supplementary check, we numerically recomputed the competitive benchmark price for fixed-demand, linear-demand, and exponential-demand scenarios.
+The linear-demand case matched the fixed-demand case in every period, and even in the exponential-demand case the maximum deviation from the fixed-demand benchmark was only 0.0007 (approximately 0.04\%).
 
 \if 0
 
@@ -348,58 +340,73 @@ Exponential  & 1 & 1.7037 & 1.7029 & 1.7024 & 1.7035 & 1.7031 \\
 
 \fi
 
-このため本研究では，固定需要ケースで用いた競争価格・共謀価格を全シナリオで共通の基準として維持し，$\lambda_t$の時間変動は主として総需要をエピソード内のどの時点に配分するかを変える拡張として扱う．
+Accordingly, in this paper we retain the competitive and collusive prices from the fixed-demand case as common benchmarks across all scenarios, and treat temporal variation in $\lambda_t$ primarily as an extension that changes how total demand is allocated across time within an episode.
 
-\subsection{市場規模シナリオ設計}
-需要規模係数$\lambda_t$は，ABCDEF則\cite{ShintaniUmeno2023ABCDEF}を反映した予約市場における需要傾向を表現するため，
-本研究では指数関数として次式で与える．
+\subsection{Market-Size Scenario Design}
+To represent reservation-market demand patterns consistent with the ABCDEF law\cite{ShintaniUmeno2023ABCDEF}, we define the demand-scale factor $\lambda_t$ by the following exponential function:
 \begin{equation}
 \lambda_t = a\exp(b(t-1))
 \label{eq:lambda_exp}
 \end{equation}
 
-ここで，$a>0$は初期需要規模，$b\in\mathbb{R}$は増加速度を表すパラメータである．
-$a=1000, b=0$とすれば，先行研究と同様に一定需要$\lambda_t=1000$の環境となる．
-$b>0$とすれば需要が時間とともに増加し，$b<0$とすれば需要が減少する．
-実験を20ステップで固定する場合，$a=1000, b=0$のときの合計需要量は$\sum_{t=1}^{20} 1000 = 20000$である．これと同じ合計需要量を持つように，$a$と$b$の組み合わせを調整することで，需要の時間的な変化が価格戦略に与える影響を公平に比較できる．このとき，$a$と$b$の関係は以下の式で表される．
+Here, $a>0$ denotes the initial demand scale and $b\in\mathbb{R}$ is the growth-rate parameter.
+When $a=1000$ and $b=0$, the environment reduces to the constant-demand case $\lambda_t=1000$, as in prior work.
+If $b>0$, demand increases over time; if $b<0$, demand decreases over time.
+When the episode length is fixed at 20 steps, the total demand under $a=1000$ and $b=0$ is $\sum_{t=1}^{20} 1000 = 20000$.
+By adjusting the pair $(a,b)$ so that the total demand remains equal to this value, we can compare the effect of temporal demand variation on pricing strategies under a common total-demand level.
+The relationship between $a$ and $b$ is then given by
 \begin{equation}
 \sum_{t=1}^{20} a\exp(b(t-1)) = 20000
 \label{eq:lambda_sum_constraint}
 \end{equation}
-したがって，$a$の値を決定すると$b$の値が一意に定まる．この関係を利用して，需要の増加・減少シナリオを設計する．
-この条件を元に，図\ref{fig:visualize_demand_curve}に示す7つの$a$の値を用いて，需要が増加・減少するシナリオを設計し，価格戦略の学習挙動を比較する．
-図\ref{fig:visualize_demand_curve}は，合計需要量$\sum_{t=1}^{20}\lambda_t=20000$を保ったまま初期需要規模$a$を変えたときの市場規模スケジュール$\{\lambda_t\}$を可視化したものである．$a$が小さいほど後半に需要が集中する増加シナリオ（$b>0$）となり，逆に$a$が大きいほど前半に需要が集中する減少シナリオ（$b<0$）となる．$a=1000$のときは$b=0$となり一定需要となる．
+Thus, once $a$ is chosen, the value of $b$ is uniquely determined.
+Using this relationship, we design increasing-demand and decreasing-demand scenarios and compare the resulting learned pricing behavior.
+Specifically, we use the seven values of $a$ shown in Fig.~\ref{fig:visualize_demand_curve}.
+Figure~\ref{fig:visualize_demand_curve} visualizes the schedule of the demand-scale factor $\{\lambda_t\}$ obtained by varying the initial demand scale $a$ while maintaining $\sum_{t=1}^{20}\lambda_t=20000$.
+Smaller values of $a$ produce increasing-demand scenarios with demand concentrated in the later periods ($b>0$), whereas larger values of $a$ produce decreasing-demand scenarios with demand concentrated in the earlier periods ($b<0$).
+When $a=1000$, we obtain $b=0$, corresponding to the constant-demand case.
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=0.9\linewidth]{visualize_demand_curve.png}
-    \caption{指数トレンド$\lambda_t=a\exp(b(t-1))$の例（$\sum_{t=1}^{20}\lambda_t=20000$を満たすように$b$を調整）}
+    \includegraphics[width=0.7\linewidth]{visualize_demand_curve.png}
+    \caption{Examples of exponential demand schedules $\lambda_t=a\exp(b(t-1))$, with $b$ adjusted so that $\sum_{t=1}^{20}\lambda_t=20000$.}
     \label{fig:visualize_demand_curve}
 \end{figure}
 
-本研究では$\lambda_t$はエージェントに直接観測されない（未知）とし，
-エージェントは時刻$t$や観測された結果（販売・在庫等）から需要水準を暗黙に推定しつつ学習する．
-この仮定は，現実の予約市場において需要水準が外生的に変動し，かつ完全には観測できない状況を反映する．
+In our setting, $\lambda_t$ is not directly observed by the agents.
+Instead, agents learn while implicitly inferring the demand level from the time step $t$ and from observed outcomes such as sales and inventory.
+This assumption reflects reservation markets in which demand levels vary exogenously and are not fully observable.
 
 
-\section{実験結果}
+\section{Results}
 
-市場規模係数$\lambda$が固定の場合と時間変動する場合において，DQNおよびPPOアルゴリズムがどのような価格戦略を学習するかを実証的に検証する．
+We empirically examine what pricing strategies DQN and PPO learn when the demand-scale factor $\lambda$ is fixed and when it varies over time.
 
-\subsection{実験設定}
+\subsection{Experimental Setup}
 
-2企業による価格競争を，各エピソード20ステップ（$t=1, 2, \ldots, 20$）にわたってシミュレートした．各企業はDQNまたはPPOアルゴリズムにより価格戦略を学習した．特に断らない限り，市場パラメータおよびDQN/PPOのハイパーパラメータはFriedrichら\cite{friedrich2025learning}のAppendix B.2（Table 1--3）に準拠している．在庫制約$I_i$は両エージェント共に440である。本研究における主な変更点は，需要規模係数を定数$\lambda$ではなく時間依存の$\lambda_t$とした点である．また，以下の学習曲線は特に断らない限り100個のランダムシードにおける平均と標準偏差を示す．
+We simulate price competition between two firms over episodes of 20 time steps ($t=1, 2, \ldots, 20$).
+Each firm learns a pricing strategy using either DQN or PPO.
+Unless otherwise stated, the market parameters and the DQN/PPO hyperparameters follow Appendix B.2 (Tables 1--3) of Friedrich et al.\cite{friedrich2025learning}.
+The inventory constraint is $I_i=440$ for both agents.
+The main modification in this paper is that the demand-scale factor is time-dependent, $\lambda_t$, rather than constant, $\lambda$.
+Unless otherwise noted, the learning curves reported below show the mean and standard deviation over 100 random seeds.
 
-\subsection{DQNとPPOにおける学習推移}
+\subsection{Learning Dynamics of DQN and PPO}
 
-\subsubsection{λ固定環境における学習}
+\subsubsection{Fixed-Demand Environment}
 
-図\ref{fig:algo_compare}は，市場規模係数が固定された環境と時間変動する環境におけるDQNとPPOの学習推移を，共謀指数で重ねて示している．
-学習初期において，エージェントは探索的な行動を示し，価格および共謀指数は大きく変動する．その後，学習の進行とともに価格は徐々に安定する。どちらのアルゴリズムにおいても、Fixed demand環境でのCollusion Indexの推移は先行研究\cite{friedrich2025learning}における固定$\lambda$環境の結果と同等のものである．図中の緑色破線は完全共謀価格，赤色破線は競争的ナッシュ均衡価格を示しており，学習された戦略は両者の中間に位置することが確認される．
+Figure~\ref{fig:algo_compare} overlays the learning dynamics of DQN and PPO in the fixed-demand and time-varying-demand environments using the collusion index.
+In the early stage of training, the agents behave exploratorily, and both prices and the collusion index fluctuate substantially.
+As training proceeds, prices gradually stabilize.
+For both algorithms, the trajectory of the collusion index in the fixed-demand environment is comparable to the result for the fixed-$\lambda$ environment reported by Friedrich et al.\cite{friedrich2025learning}.
+The green dashed line in the figure indicates the fully collusive price, and the red dashed line indicates the competitive Nash equilibrium price, showing that the learned strategies lie between these two benchmarks.
 
-\subsubsection{λ変動環境における学習}
+\subsubsection{Time-Varying-Demand Environment}
 
-同図の時間変動条件は，市場規模係数が式\eqref{eq:lambda_exp}に従って時間的に指数増加する環境の学習結果である．具体的には，$a=400$として，$t=1$で$\lambda_1=400$，$t=20$で$\lambda_{20}=1984$となるように設定した．変動条件においても，collusion indexの全体的な上昇、下降の傾向は固定条件と類似している．学習初期の探索期間を経て，両エージェントの価格は約6に収束し，共謀指数は0.28前後で安定した．
+The time-varying condition in the same figure corresponds to an environment in which the demand-scale factor increases exponentially over time according to Eq.~\eqref{eq:lambda_exp}.
+Specifically, we set $a=400$, which yields $\lambda_1=400$ at $t=1$ and $\lambda_{20}=1984$ at $t=20$.
+Even in the varying-demand condition, the overall pattern of rise and fall in the collusion index is similar to that in the fixed-demand condition.
+After the initial exploration period, the prices of both agents converge to approximately 6, and the collusion index stabilizes around 0.28.
 
 
 
@@ -414,20 +421,26 @@ $b>0$とすれば需要が時間とともに増加し，$b<0$とすれば需要�
 \centering
 \includegraphics[width=\textwidth]{fig2_PPO_fixed_vs_exponential_collindex.png}
 \end{minipage}
-\caption{固定$\lambda$環境と変動$\lambda$環境における学習推移の比較（左：DQN，右：PPO）}
+\caption{Comparison of learning dynamics in the fixed-$\lambda$ and time-varying-$\lambda$ environments. Left: DQN. Right: PPO.}
 \label{fig:algo_compare}
 \end{figure}
 
 
-PPOとDQNを比較すると、DQNの方が需要による変動の差が小さい。
-DQNではステップごとの遷移に基づいてQ値が更新されるため，エピソード全体にまたがる市場規模の変動パターンが，個別ステップにおける意思決定へ比較的反映されにくかった可能性がある．
-一方、PPOは固定$\lambda$では共謀指数が約0.41に達したのに対し，時間変動$\lambda$（指数増加パターン；式\eqref{eq:lambda_exp}，$a=400$）では0.21程度に留まった．PPOはエピソード単位の軌跡から方策更新を行うため，エピソード前半（$\lambda$が小さい）での報酬尺度が後半に比べて相対的に小さい設定では，前半における協調行動の価値が学習上相対的に小さく評価された可能性がある．
+Comparing PPO and DQN, DQN is less sensitive to demand variation.
+One possible explanation is that DQN updates Q-values from step-level transitions, so the pattern of demand-scale variation over the entire episode may be reflected less directly in per-step decisions.
+By contrast, PPO reaches a collusion index of about 0.41 under fixed $\lambda$, but remains around 0.21 under time-varying $\lambda$ (the exponentially increasing pattern in Eq.~\eqref{eq:lambda_exp} with $a=400$).
+Because PPO updates policies from episode-level trajectories, the value of coordination in the first half of the episode may be evaluated as relatively small when the reward scale in the early phase (where $\lambda$ is small) is much lower than in the later phase.
 
-\subsection{学習済みエージェントの行動分析}
+\subsection{Behavioral Analysis of Learned Agents}
 
-学習後の方策がエピソード内でどのように価格を決定しているかを確認するため，需要規模変動による差が大きいPPOを使用して、学習済みエージェントの評価エピソードを観察した．図\ref{fig:ppo_eval_episode_compare}より，固定$\lambda$環境と比較し時間変動$\lambda$環境では初期ステップでの価格が低いことが確認される。また、終盤にかけての需要スケールの増加が、エピソード前半での共謀行動の価値を相対的に低下させた可能性がある．
+To examine how the learned policies determine prices within an episode, we inspect evaluation episodes of trained PPO agents, for which the effect of demand variation is particularly pronounced.
+Figure~\ref{fig:ppo_eval_episode_compare} shows that, compared with the fixed-$\lambda$ environment, the time-varying-$\lambda$ environment yields lower prices in the initial steps.
+The increase in demand scale toward the end of the episode appears to reduce the relative value of collusive behavior in the first half of the episode.
 
-さらに，図\ref{fig:ppo_forced_deviation_compare}は，一方のエージェントに逸脱を強制した場合の価格応答を示している．いずれの環境でも一時的な価格逸脱の後に相手エージェントが価格を調整する様子が見られる．ただし指数増加$\lambda$環境では逸脱後に共謀へ復帰した際の価格が固定$\lambda$環境に比べて低い。つまり、初期価格の低下は、競争に陥っていることではなく、共謀は成立しているものの、共謀水準が低いことに起因していると考えられる．
+Figure~\ref{fig:ppo_forced_deviation_compare} further shows the price response when one agent is forced to deviate.
+In both environments, the other agent adjusts its price after a temporary deviation.
+However, in the exponentially increasing-$\lambda$ environment, the price level after returning to collusion is lower than in the fixed-$\lambda$ environment.
+This suggests that the lower initial prices do not indicate a collapse into competition; rather, collusion is still present, but at a lower level.
 
 \begin{figure}[tb]
   \centering
@@ -440,7 +453,7 @@ DQNではステップごとの遷移に基づいてQ値が更新されるため�
     \centering
     \includegraphics[width=\textwidth]{fig3a_PPO-1000-exponential-400_1984.524399_evalep.png}
   \end{minipage}
-  \caption{学習済み方策の評価エピソードにおける価格系列の比較（左：固定$\lambda$，右：指数増加$\lambda$）}
+  \caption{Comparison of price paths in evaluation episodes of the learned policy. Left: fixed $\lambda$. Right: exponentially increasing $\lambda$.}
   \label{fig:ppo_eval_episode_compare}
 \end{figure}
 
@@ -455,26 +468,30 @@ DQNではステップごとの遷移に基づいてQ値が更新されるため�
     \centering
     \includegraphics[width=\textwidth]{fig3a_PPO-1000-exponential-400_1984.524399_forced_dev.png}
   \end{minipage}
-  \caption{一方のエージェントに逸脱を強制した場合の価格応答の比較（上段：$t=1$で逸脱，下段：$t=9$で逸脱，左：固定$\lambda$，右：指数増加$\lambda$）}
+  \caption{Comparison of price responses when one agent is forced to deviate. Top: deviation at $t=1$. Bottom: deviation at $t=9$. Left: fixed $\lambda$. Right: exponentially increasing $\lambda$.}
   \label{fig:ppo_forced_deviation_compare}
 \end{figure}
 
-\subsection{λの変化率と共謀の収束}
+\subsection{Rate of Change in Lambda and Converged Collusion}
 
-指数トレンド需要（式\eqref{eq:lambda_exp}）における需要規模係数$\lambda_t$の変化速度が，共謀指数の収束水準に与える影響を検証する．図\ref{fig:visualize_demand_curve}に示した7種類の市場規模スケジュール（$a=100,200,400,800,1000,1200,1600$）を対象とし，エピソード長を$T=20$に固定した上で，合計需要量が一定となるように（式\eqref{eq:lambda_sum_constraint}）各$a$に対して$b$を一意に定めた．
+We next examine how the rate of change in the demand-scale factor $\lambda_t$ under the exponential demand trend in Eq.~\eqref{eq:lambda_exp} affects the converged collusion index.
+We consider the seven schedules of the demand-scale factor shown in Fig.~\ref{fig:visualize_demand_curve}, corresponding to $a=100,200,400,800,1000,1200,1600$.
+With the episode length fixed at $T=20$, we determine $b$ uniquely for each value of $a$ so that total demand remains constant, as in Eq.~\eqref{eq:lambda_sum_constraint}.
 
-DQNおよびPPOにより各条件を100個の異なるランダムシードで学習を行い，共謀指数は式\eqref{eq:collusion_index}で定義した$\gamma=0.5$の一般化平均について，学習期間のラスト10\%区間における各seedの平均値を算出して要約した．結果を表\ref{tab:ppo_exp_collusion}に示す．
+For each condition, we train DQN and PPO with 100 different random seeds.
+As the summary statistic for the collusion index, we use the generalized mean with $\gamma=0.5$ defined in Eq.~\eqref{eq:collusion_index}, and compute for each seed the mean over the last 10\% of training.
+The results are shown in Table~\ref{tab:ppo_exp_collusion}.
 
 \begin{table}[tb]
 \centering
-\caption{指数トレンド需要における共謀指数（式\eqref{eq:collusion_index}，$\gamma=0.5$の一般化平均，DQN/PPO，100シード）}
+\caption{Collusion index under exponential demand schedules (Eq.~\eqref{eq:collusion_index}, generalized mean with $\gamma=0.5$, DQN/PPO, 100 seeds).}
 \label{tab:ppo_exp_collusion}
 \small
 \setlength{\tabcolsep}{4pt}
 \begin{tabular}{lrrrrrrr}
 \hline
 $\lambda_1(=a)$ & 100 & 200 & 400 & 800 & 1000 & 1200 & 1600 \\
-$\lambda_{20}$（整数部） & 3494 & 2752 & 1984 & 1228 & 1000 & 822 & 566 \\
+$\lfloor \lambda_{20}\rfloor$ & 3494 & 2752 & 1984 & 1228 & 1000 & 822 & 566 \\
 Mean CI (DQN) & 0.21 & 0.24 & 0.28 & 0.24 & 0.21 & 0.19 & 0.19 \\
 Std.\ CI (DQN) & 0.09 & 0.09 & 0.08 & 0.06 & 0.05 & 0.06 & 0.06 \\
 Mean CI (PPO) & 0.14 & 0.16 & 0.21 & 0.30 & 0.41 & 0.48 & 0.55 \\
@@ -483,17 +500,30 @@ Std.\ CI (PPO) & 0.13 & 0.09 & 0.12 & 0.10 & 0.13 & 0.15 & 0.19 \\
 \end{tabular}
 \end{table}
 
-表\ref{tab:ppo_exp_collusion}より，DQNでは需要パターンに対する共謀指数の変化は比較的小さい一方，PPOでは需要が後期に集中する増加シナリオほど共謀指数は低く，前半に集中する減少シナリオほど共謀指数は高い傾向が確認できる．両アルゴリズムの間で最も傾向が異なるのは、需要が前期に集中する減少シナリオ（$a=1200,1600$）であり、PPOは共謀指数が固定需要と比べて大きく増加し、DQNは僅かに減少している．この差は，PPO が on-policy の軌跡ベース更新により，序盤の高価格維持がエピソード全体の利得を高めるという advantage を学習しやすいのに対し，DQN は off-policy の one-step TD 学習と replay buffer によって，高需要期と低需要期の遷移を混在させながら価値推定を行うため，時間依存の在庫配分価値を捉えにくいことに起因すると考えられる。
-需要が後期に集中するシナリオでは、軌跡ベースの更新により後半のステップの勾配が支配的になり、序盤の協調が学習できなかったため、共謀指数が低くなった．在庫制約を420に減らした場合、需要変化に応じた共謀指数の収束値の傾向は同様であるが、全体的に共謀指数が低くなった。
-したがって，需要の時間構造が共謀形成へ与える影響は各学習アルゴリズムで共通のものではなく，市場環境と学習更新方法の相互作用によって変化する。
+Table~\ref{tab:ppo_exp_collusion} shows that, for DQN, the collusion index varies only moderately across demand patterns.
+For PPO, in contrast, the collusion index tends to be lower in increasing-demand scenarios where demand is concentrated in the later periods, and higher in decreasing-demand scenarios where demand is concentrated in the earlier periods.
+The largest difference between the two algorithms appears in the decreasing-demand scenarios with demand concentrated early in the episode ($a=1200,1600$): PPO shows a substantial increase in the collusion index relative to the fixed-demand case, whereas DQN shows a slight decrease.
+One possible explanation is that PPO, through on-policy trajectory-based updates, can more easily learn the advantage of maintaining high prices early in the episode when doing so improves total episode profit.
+By contrast, DQN relies on off-policy one-step TD learning with a replay buffer, which mixes transitions from high-demand and low-demand periods and may therefore make it more difficult to capture the time-dependent value of inventory allocation.
+In scenarios where demand is concentrated in the later periods, the gradients from the later steps may dominate the trajectory-based updates, which may hinder the learning of early-stage coordination and thereby lower the collusion index.
+When the inventory constraint is reduced to 420, the qualitative pattern of converged collusion across demand scenarios remains similar, but the overall collusion index becomes lower.
+These results suggest that the effect of temporal demand structure on collusion formation is not shared uniformly across learning algorithms, but instead depends on the interaction between the market environment and the learning-update mechanism.
 
 
-\section{結論・今後の課題}
+\section{Conclusion and Future Work}
 
-本研究では，在庫制約を伴うエピソディック市場において，需要規模が時間とともに変動する状況下でアルゴリズムが学習する共謀的行動にどのような影響が生じるかを検証した。
-主な発見は，需要の時間的構造が学習エージェントの共謀形成メカニズムに大きな影響を与えることの実証である。特にPPOを用いた学習では，需要が初期段階に集中する市場環境ほど共謀水準が高く，逆に後期に需要が集中する環境では共謀維持が困難になることが明らかになった。一方DQNでは同じ環境変動に対する応答が相対的に小さく，アルゴリズムの学習方式（on-policyか off-policyか）が需要変動への適応メカニズムに根本的に影響することが示唆される。
-この知見は，予約市場において観測される需要の時間的パターンが，単なる販売機会の分配問題ではなく，アルゴリズム共謀の維持可能性を左右する環境要因となりうることを示唆している。現実の航空券やホテル予約市場では季節性や時間的な需要変動が避けられず，こうした時間構造がアルゴリズム価格設定下での競争効果に影響する可能性がある。
-今回行った実験では，水平差別化指数や在庫制約の程度など，他の環境パラメータを固定した上で，需要規模の時間変化の影響を検証した．今後は，これらのパラメータも変化させた条件で実験を行い，需要の時間変化と他の環境要因が共謀形成に与える複合的な影響を明らかにすることが重要である．また，指数的な需要変化の根拠として予約市場における需要の増加を挙げたが，具体的な増加速度の数値は用いていない．今後，品質や水平差別化指数，在庫制約などと合わせて現実的な市場環境を構築し，実験を行うことでアルゴリズム共謀が実社会に与える影響を検討していきたい．
+In this paper, we investigated how time-varying demand scale affects the collusive behavior learned by algorithms in episodic inventory-constrained markets.
+Our main finding is that the temporal structure of demand has a substantial effect on collusion formation by learning agents.
+In particular, under PPO, collusion is stronger when demand is concentrated in the early part of the episode, whereas maintaining collusion becomes more difficult when demand is concentrated in the later part.
+Under DQN, by contrast, the response to the same environmental variation is comparatively small, suggesting that the learning style of the algorithm, in particular whether it is on-policy or off-policy, may fundamentally affect how agents adapt to demand variation.
+
+These findings suggest that temporal demand patterns observed in reservation markets are not merely a matter of allocating sales opportunities over time, but may also serve as environmental factors that affect the sustainability of algorithmic collusion.
+Real airline-ticket and hotel-booking markets inevitably involve seasonality and temporal demand variation, and such temporal structure may therefore affect competition under algorithmic pricing.
+
+In the experiments conducted here, we fixed other environmental parameters such as the horizontal-differentiation parameter and product quality, and focused on the effect of temporal demand variation.
+An important direction for future work is to vary these parameters as well and clarify the combined effect of temporal demand variation and other environmental factors on collusion formation.
+In addition, while we motivated exponential demand variation by referring to reservation markets, we did not use empirically calibrated values for the rate of increase.
+Future work should construct more realistic market environments by combining realistic assumptions on quality, horizontal differentiation, and inventory constraints, and should then examine the implications of algorithmic collusion for real-world markets.
 
 
 % ---- Bibliography ----
