@@ -60,10 +60,6 @@ Katsuhide Fujita\orcidID{0000-0001-7867-4281}}
 %\url{https://katfuji.lab.tuat.ac.jp/}}
 \maketitle              % typeset the header of the contribution
 
-% erase page number
-\thispagestyle{empty} % 1ページ目のページ番号を消去
-\pagestyle{empty}  
-
 %
 \begin{abstract}
 Pricing systems in which agents actively learn pricing strategies for products and services are increasingly being deployed. Simulation studies have shown that the autonomy of such agents can sustain price increases across competing firms without explicit communication, a phenomenon known as algorithmic collusion. Prior work on inventory-constrained pricing markets has typically assumed that demand scale remains constant over time. In this paper, we study a more realistic setting by introducing a market environment in which demand scale varies over time and examining how this affects algorithmic collusion. Our framework preserves computable competitive and collusive benchmarks, enabling numerical comparison across demand scenarios. In experiments with Proximal Policy Optimization (PPO), we observe a negative correlation between the rate of change in demand scale and the resulting collusion index. These findings suggest that the temporal structure of demand may play an important role in the emergence of collusive behavior among learning agents.
@@ -88,19 +84,17 @@ In many reservation markets, however, demand scale evolves over time, which may 
 In repeated pricing games, Q-learning-based pricing algorithms have been shown to converge to supra-competitive prices even without explicit communication among firms\cite{calvano2020a,klein2021}.
 In particular, Calvano et al.\cite{calvano2020a} reported that collusive strategies supported by finite punishment phases can arise endogenously in a standard repeated Bertrand oligopoly.
 The implications of such algorithmic pricing for competition law and policy have also been discussed from the perspectives of both survey work and institutional design\cite{calvano2020b,harrington2019}.
-
-Much of this literature adopts repeated Bertrand competition as the basic environment, in which firms repeatedly choose the price of a single product using independent pricing algorithms\cite{calvano2020a,klein2021}.
+% Much of this literature adopts repeated Bertrand competition as the basic environment, in which firms repeatedly choose the price of a single product using independent pricing algorithms\cite{calvano2020a,klein2021}.
 As a deep-reinforcement-learning extension, Hettich\cite{hettich2021} introduced DQN\cite{mnih2015}, providing a framework that can handle larger state spaces than tabular Q-learning.
-More recent work has also analyzed collusive pricing and differences in its degree in deep-reinforcement-learning-based pricing games using PPO, DQN, and related methods\cite{Schlechtinger2024,deng2024algorithmic}.
+More recent work has also analyzed collusive pricing and differences in its degree in deep-reinforcement-learning-based pricing games using PPO\cite{schulman2017proximal}, DQN, and related methods\cite{Schlechtinger2024,deng2024algorithmic}.
 There are also studies on continuous pricing with policy-gradient methods\cite{martello2022autonomous}, as well as work that analyzes the competitive effects of pricing algorithms from both empirical and theoretical perspectives\cite{brown2021,assad2020,Abada2020,Sanchez-Cartas2022}.
 Most of these studies observe only the prices determined by algorithms, whereas many real markets are subject to inventory constraints.
 Friedrich et al.\cite{friedrich2025learning} showed that when learning algorithms observe both prices and inventories across repeated episodes, they can experimentally acquire collusive behavior in finite-horizon inventory-constrained markets.
 % 同研究では在庫制約つきの有限期間価格競争を，有限期間マルコフゲームとして定式化し，エージェントの暗黙的共謀を分析した．各時刻で企業は価格を同時に選択し，需要に応じて販売が発生し，在庫が更新される．
-Shintani et al.\cite{ShintaniUmeno2023ABCDEF} analyzed the temporal structure of average booking curves in reservation markets using real booking data from the hotel and rental-car industries.
-Here, an average booking curve denotes the average cumulative number of bookings as a function of the remaining time $t$ until the deadline, aggregated across booking curves from multiple dates.
-They showed that the average booking curve can be approximated by the exponential form $E[X(t)] \simeq A\exp(-\beta t)$ and referred to this regularity as the ABCDEF (Average Booking Curves Draw Exponential Functions) law.
 
-Ito et al.\cite{ItoEtAl2024ReservationTiming} further analyzed booking timing and the temporal change in cancellation probabilities using hotel-booking data from a Japanese online travel agent (OTA), and showed that these patterns can be represented as sums of exponential functions of the days until stay and the elapsed days after booking.
+Shintani et al.\cite{ShintaniUmeno2023ABCDEF} analyzed the temporal structure of average booking curves in reservation markets using real booking data from the hotel and rental-car industries.
+% Here, an average booking curve denotes the average cumulative number of bookings as a function of the remaining time $t$ until the deadline, aggregated across booking curves from multiple dates.
+They showed that the average booking curve can be approximated by the exponential form $E[X(t)] \simeq A\exp(-\beta t)$ and referred to this regularity as the ABCDEF (Average Booking Curves Draw Exponential Functions) law.
 
 \section{Problem Statement}
 \label{sec:problem_statement}
@@ -300,28 +294,18 @@ Exponential  & 1 & 1.7037 & 1.7029 & 1.7024 & 1.7035 & 1.7031 \\
 Accordingly, in this paper we retain the competitive and collusive prices from the fixed-demand case as common benchmarks across all scenarios, and treat temporal variation in $\lambda_t$ primarily as an extension that changes how total demand is allocated across time within an episode.
 
 \subsection{Demand-Scale Scenario Design}
-To represent reservation-market demand patterns consistent with the ABCDEF law\cite{ShintaniUmeno2023ABCDEF}, we define the demand-scale factor $\lambda_t$ by the following exponential function:
+To represent reservation-market demand patterns consistent with the ABCDEF law\cite{ShintaniUmeno2023ABCDEF}, we define the demand-scale factor $\lambda_t$ by
 \begin{equation}
 \lambda_t = a\exp(b(t-1))
 \label{eq:lambda_exp}
 \end{equation}
 
-Here, $a>0$ denotes the initial demand scale and $b\in\mathbb{R}$ is the growth-rate parameter.
-When $a=1000$ and $b=0$, the environment reduces to the constant-demand case $\lambda_t=1000$, as in prior work.
-If $b>0$, demand increases over time; if $b<0$, demand decreases over time.
-When the episode length is fixed at 20 steps, the total demand under $a=1000$ and $b=0$ is $\sum_{t=1}^{20} 1000 = 20000$.
-By adjusting the pair $(a,b)$ so that the total demand remains equal to this value, we can compare the effect of temporal demand variation on pricing strategies under a common total-demand level.
-The relationship between $a$ and $b$ is then given by
+where $a>0$ denotes the initial demand scale and $b\in\mathbb{R}$ is the growth-rate parameter. We compare scenarios under a common total-demand level, choosing $(a,b)$ so that
 \begin{equation}
 \sum_{t=1}^{20} a\exp(b(t-1)) = 20000
 \label{eq:lambda_sum_constraint}
 \end{equation}
-Thus, once $a$ is chosen, the value of $b$ is uniquely determined.
-Using this relationship, we design increasing-demand and decreasing-demand scenarios and compare the resulting learned pricing behavior.
-Specifically, we use the seven values of $a$ shown in Fig.~\ref{fig:visualize_demand_curve}.
-Figure~\ref{fig:visualize_demand_curve} visualizes the schedule of the demand-scale factor $\{\lambda_t\}$ obtained by varying the initial demand scale $a$ while maintaining $\sum_{t=1}^{20}\lambda_t=20000$.
-Smaller values of $a$ produce increasing-demand scenarios with demand concentrated in the later periods ($b>0$), whereas larger values of $a$ produce decreasing-demand scenarios with demand concentrated in the earlier periods ($b<0$).
-When $a=1000$, we obtain $b=0$, corresponding to the constant-demand case.
+Thus, once $a$ is chosen, the value of $b$ is uniquely determined. Figure~\ref{fig:visualize_demand_curve} shows the resulting schedules for the seven values of $a$ used in our experiments. Smaller values of $a$ produce increasing-demand scenarios ($b>0$), larger values produce decreasing-demand scenarios ($b<0$), and $a=1000$ gives the constant-demand case.
 
 \begin{figure}[t]
     \centering
@@ -363,7 +347,7 @@ The green dashed line in the figure indicates the fully collusive price, and the
 The time-varying condition in the same figure corresponds to an environment in which the demand-scale factor increases exponentially over time according to Eq.~\eqref{eq:lambda_exp}.
 Specifically, we set $a=400$, which yields $\lambda_1=400$ at $t=1$ and $\lambda_{20}=1984$ at $t=20$.
 Even in the varying-demand condition, the overall pattern of rise and fall in the collusion index is similar to that in the fixed-demand condition.
-After the initial exploration period, the prices of both agents converge to approximately 6, and the collusion index stabilizes around 0.28.
+% After the initial exploration period, the prices of both agents converge to approximately 6, and the collusion index stabilizes around 0.28.
 
 
 
@@ -394,7 +378,7 @@ To examine how the learned policies determine prices within an episode, we inspe
 Figure~\ref{fig:ppo_eval_episode_compare} shows that, compared with the fixed-$\lambda$ environment, the time-varying-$\lambda$ environment yields lower prices in the initial steps.
 The increase in demand scale toward the end of the episode appears to reduce the relative value of collusive behavior in the first half of the episode.
 
-Figure~\ref{fig:ppo_forced_deviation_compare} compares forced-deviation responses in the fixed-$\lambda$ case (left) and the exponentially increasing-$\lambda$ case (right); the upper and lower plots correspond to deviations at $t=1$ and $t=9$, respectively.
+Figure~\ref{fig:ppo_forced_deviation_compare} compares representative forced-deviation responses with a deviation imposed at $t=1$ in the fixed-$\lambda$ case (left) and the exponentially increasing-$\lambda$ case (right).
 In both environments, the other agent adjusts its price after a temporary deviation.
 However, in the exponentially increasing-$\lambda$ environment, the price level after returning to collusion is lower than in the fixed-$\lambda$ environment.
 This suggests that the lower initial prices do not indicate a collapse into competition; rather, collusion is still present, but at a lower level.
@@ -418,18 +402,18 @@ This suggests that the lower initial prices do not indicate a collapse into comp
   \centering
   \begin{minipage}[t]{0.48\textwidth}
     \centering
-    \includegraphics[width=\textwidth]{fig3a_PPO-1000-fixed_forced_dev.png}
+    \includegraphics[width=\textwidth]{fig3a_PPO-1000-fixed_forced_dev_cropped.png}
   \end{minipage}
   \hfill
   \begin{minipage}[t]{0.48\textwidth}
     \centering
-    \includegraphics[width=\textwidth]{fig3a_PPO-1000-exponential-400_1984.524399_forced_dev.png}
+    \includegraphics[width=\textwidth]{fig3a_PPO-1000-exponential-400_1984.524399_forced_dev_cropped.png}
   \end{minipage}
-  \caption{Forced-deviation responses of the learned PPO policy.}
+  \caption{Forced-deviation responses of the learned PPO policy with a deviation at $t=1$. Left: fixed $\lambda$. Right: exponentially increasing $\lambda$.}
   \label{fig:ppo_forced_deviation_compare}
 \end{figure}
 
-\subsection{Rate of Change in Lambda and Converged Collusion}
+\subsection{Rate of Change in Demand Scale and Converged Collusion}
 
 We next examine how the rate of change in the demand-scale factor $\lambda_t$ under the exponential demand trend in Eq.~\eqref{eq:lambda_exp} affects the converged collusion index.
 We consider the seven schedules of the demand-scale factor shown in Fig.~\ref{fig:visualize_demand_curve}, corresponding to $a=100,200,400,800,1000,1200,1600$.
