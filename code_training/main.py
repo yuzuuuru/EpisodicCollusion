@@ -3,6 +3,7 @@ import logging
 import shutil
 import os
 import pickle
+import glob
 from typing import Dict, Any
 from copy import deepcopy
 import collections.abc
@@ -17,7 +18,9 @@ logical_cores = os.cpu_count() or 1
 # Typically physical cores = logical cores / 2 when hyperthreading is enabled
 # Use about 1/4 to 1/2 of physical cores for good balance
 physical_cores_estimate = logical_cores // 2
-num_cores_to_use = max(physical_cores_estimate // 2, 1)
+num_cores_to_use = int(
+    os.environ.get("EC_NUM_CPU_DEVICES", max(physical_cores_estimate // 2, 1))
+)
 os.environ['XLA_FLAGS'] = f'--xla_force_host_platform_device_count={num_cores_to_use}'
 print(f"Logical CPU cores: {logical_cores}")
 print(f"Estimated physical cores: {physical_cores_estimate}")
@@ -325,7 +328,22 @@ def main(args):
     # Strip './exp/' from the beginning of save_dir and add './conf/archive/'
     config_save_path = os.path.join("./conf/archive/", save_dir[6:])
     os.makedirs(os.path.dirname(config_save_path), exist_ok=True)
-    shutil.copy2(f"conf/{config_name}.yaml", config_save_path)
+    config_source_path = f"conf/{config_name}.yaml"
+    if not os.path.exists(config_source_path):
+        matches = [
+            path
+            for path in glob.glob(f"conf/**/{config_name}.yaml", recursive=True)
+            if not path.startswith("conf/archive/")
+        ]
+        if len(matches) == 1:
+            config_source_path = matches[0]
+        elif len(matches) > 1:
+            raise FileNotFoundError(
+                f"Multiple config files found for {config_name}: {matches}"
+            )
+        else:
+            raise FileNotFoundError(f"Could not find config file for {config_name}")
+    shutil.copy2(config_source_path, config_save_path)
 
     print(f"Config file saved to: {config_save_path}")
     env, env_params = env_setup(args, logger)
@@ -449,10 +467,12 @@ def main(args):
         # Check if we can use pmap for parallel execution
         num_devices_available = jax.local_device_count()
         num_seeds_actual = len(seeds)
-        use_pmap = num_seeds_actual > 1 and num_devices_available > 1
+        disable_pmap = os.environ.get("EC_DISABLE_PMAP", "0") == "1"
+        use_pmap = not disable_pmap and num_seeds_actual > 1 and num_devices_available > 1
         
         print(f"Number of JAX devices available: {num_devices_available}")
         print(f"Number of seeds: {num_seeds_actual}")
+        print(f"PMAP disabled via env: {disable_pmap}")
         
         if use_pmap:
             # Use min(num_seeds, num_devices) devices for efficiency

@@ -1,0 +1,119 @@
+hydra:
+  run:
+    dir: .
+  sweep:
+    dir: .
+    subdir: .
+  job_logging:
+    root:
+      level: INFO
+  sweeper:
+    params:
+      ++seed: range(1,10)
+seed: 0
+num_seeds: 100
+save_dir: "./exp/${wandb.group}/${wandb.name}"
+save: True
+save_interval: 10000
+debug: False
+shuffle_players: False
+agent1_roles: 1
+agent2_roles: 1
+agent2_reset_interval: 1
+agent_default: 'PPO'
+agent1: 'PPO'
+agent2: 'PPO'
+env_id: MarketEnv-v1
+env_type: sequential
+num_players: 2
+time_horizon: 20
+min_price:
+max_price:
+num_prices: 15
+xi: 0.2
+possible_prices:
+qualities: [2, 2]
+marginal_costs: [1, 1]
+horizontal_diff: 0.25
+demand_scaling_factor: 1000
+demand_scaler: "exponential"
+demand_scale_start: 800
+demand_scale_end: 1228.992284
+initial_inventories: [380, 380]
+initial_prices: [1, 1]
+initial_actions: [-1, -1]
+which_price_grid: "constrained"
+competitive_action:
+competitive_price:
+competitive_profits:
+competitive_profits_episodetotal:
+collusive_action:
+collusive_price:
+collusive_profits:
+collusive_profits_episodetotal:
+runner: rl-gridsearch
+num_envs: 1
+num_opps: 1
+num_outer_steps: 1
+num_inner_steps:
+num_iters: 1000
+normalize_obs: False
+normalize_rewards_wrapper: False
+normalize_rewards_manually: True
+normalizing_rewards_min:
+normalizing_rewards_max:
+normalizing_rewards_gamma:
+clip_rewards: False
+reward_clipping_limit:
+ppo_default:
+  num_minibatches: 10
+  num_epochs: 20
+  gamma: 1
+  gae_lambda: 0.95
+  ppo_clipping_epsilon: 0.2
+  value_coeff: 0.5
+  clip_value: True
+  max_gradient_norm: 0.5
+  anneal_entropy: "exponential"
+  entropy_coeff_start: 0.03
+  entropy_anneal_duration: 0.75
+  entropy_coeff_horizon:
+  entropy_coeff_end: 0.0001
+  entropy_clipping: True
+  lr_scheduling: False
+  learning_rate: 2.5e-4
+  adam_epsilon: 1e-5
+  with_memory: True
+  hidden_sizes: [64, 64]
+  separate: True
+  with_cnn: False
+dqn_default:
+  max_gradient_norm: 25
+  adam_epsilon: 0.001
+  learning_rate: 0.001
+  lr_scheduling: False
+  lr_anneal_duration: 1
+  buffer_size: 100000
+  buffer_batch_size: 128
+  discount: 1
+  epsilon_start: 1
+  epsilon_finish: 0.015
+  epsilon_anneal_duration: 0.5
+  epsilon_anneal_time:
+  epsilon_anneal_type: "exponential"
+  epsilon_clipping: False
+  polyak_tau: 1
+  initial_exploration_episodes: 5000
+  training_interval_episodes: 4
+  target_update_interval_episodes: 200
+  hidden_sizes: [64, 64]
+wandb:
+  entity: "ktgw543210-tokyo-university-of-agriculture-and-technology"
+  tags: 'test'
+  project: 'marl-col'
+  group: "PPO-1000-${demand_scaler}-${demand_scale_start}_${demand_scale_end}-const-380"
+  name: '${demand_scaler}-demand-seed-${seed}'
+  mode: online
+  log: False
+gridsearch:
+  time_horizon: [20]

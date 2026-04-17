@@ -1,0 +1,142 @@
+hydra:
+  run:
+    dir: .
+  sweep:
+    dir: .
+    subdir: .
+  job_logging:
+    root:
+      level: INFO
+  sweeper:
+    params:
+      ++seed: range(1,10)
+# Global vars
+seed: 0
+num_seeds: 100
+save_dir: "./exp/${wandb.group}/${wandb.name}"
+save: True
+save_interval: 10000
+debug: False
+
+shuffle_players: False
+agent1_roles: 1
+agent2_roles: 1 # make agent 2 assume multiple roles in an n-player game
+agent2_reset_interval: 1 # reset agent 2 every rollout
+
+# Agents
+agent_default: 'DQN'
+agent1: 'DQN'
+agent2: 'DQN'
+
+# Environment
+# env_id: InTheMatrix,
+# MarketEnv-v1: full model. resets states at end of ep.
+# MarketEnv-InfiniteInventoryEpisodic: doesn't decrement inventory. resets states at end of ep.,
+# MarketEnv-InfiniteInventoryInfiniteEpisode (..._no_resets.py): doesn't decrement inventory. doesn't reset states at end of ep. (infinitely repeated game)
+env_id: MarketEnv-v1 # MarketEnv-v1 # MarketEnv-InfiniteInventoryEpisodic
+env_type: sequential
+num_players: 2
+time_horizon: 20 # this determines dones
+min_price: # if possible_prices empty: this is overwritten by possible_prices_func
+max_price: # if possible_prices empty: this is overwritten by possible_prices_func
+num_prices: 15 # Number of prices. N-1 steps in the interval. This now feeds into MarketEnv's num_actions (which determines the agent dist's!)
+xi: 0.2 # 0.2307692308 # If want p[k]=N, p[end-k]=M: set xi := k/(N-1-2k), so for k=1: 1/(N-3). Determines how far below nash / above collusive the prices are. 0: price[0]=nash, price[-1]=comp.
+possible_prices: # leave empty to have it be determined as [p_N - xi*(p_M-p_N), p_M + xi*(p_M-p_N)]. otherwise [1.0, 1.1, 1.2]
+qualities: [2, 2]
+marginal_costs: [1, 1]
+horizontal_diff: 0.25
+
+# Time-varying demand scaling factor configuration
+demand_scaling_factor: 1000  # Fallback/default value (not used when demand_scaler is set)
+demand_scaler: "exponential" # Options: "constant", "linear", "exponential"
+demand_scale_start: 100      # Starting demand scale at t=0
+demand_scale_end: 3494.823713 # Ending demand scale at t=T-1
+
+initial_inventories: [440, 440] # this is per single timestep! automatically scaled to time horizon. coll: 365, monop: 470. good value between: 420.
+initial_prices: [1, 1]
+initial_actions: [-1, -1]
+which_price_grid: "constrained" # which equilibria is the price range's width based on? "unconstrained" or "constrained"
+competitive_action: # filled in main.py
+competitive_price: # filled in main.py
+competitive_profits: # filled in main.py
+competitive_profits_episodetotal: # filled in main.py
+collusive_action: # filled in main.py
+collusive_price: # filled in main.py
+collusive_profits: # filled in main.py
+collusive_profits_episodetotal: # filled in main.py
+
+# Runner
+runner: rl-gridsearch
+
+# Training hyperparameters
+num_envs: 1
+num_opps: 1
+num_outer_steps: 1
+num_inner_steps: # filled by main. SAME AS TIME_HORIZON. Impacts: buffer_size, epsilon_anneal_time
+num_iters: 50000
+
+normalize_obs: False
+normalize_rewards_wrapper: False
+normalize_rewards_manually: True
+normalizing_rewards_min: # filled in by main.py
+normalizing_rewards_max: # filled in by main.py
+normalizing_rewards_gamma: # filled in by main.py (:= dqn_default.discount). discount rate for normalizing rewards
+clip_rewards: False
+reward_clipping_limit:
+
+ppo_default:
+  num_minibatches: 4
+  num_epochs: 20
+  gamma: 1
+  gae_lambda: 0.95
+  ppo_clipping_epsilon: 0.2
+  value_coeff: 0.5
+  clip_value: True
+  max_gradient_norm: 0.5
+  anneal_entropy: "exponential"
+  entropy_coeff_start: 0.01
+  entropy_anneal_duration: 0.75
+  entropy_coeff_horizon:
+  entropy_coeff_end: 0.0001
+  entropy_clipping: True
+  lr_scheduling: False
+  learning_rate: 0.001
+  adam_epsilon: 1e-5
+  with_memory: True
+  hidden_sizes: [64, 64]
+  separate: True
+  with_cnn: False
+
+dqn_default:
+  max_gradient_norm: 25
+  adam_epsilon: 0.001
+  learning_rate: 0.001
+  lr_scheduling: False
+  lr_anneal_duration: 1
+  buffer_size: 200000
+  buffer_batch_size: 64
+  discount: 1
+  epsilon_start: 1
+  epsilon_finish: 0.015
+  epsilon_anneal_duration: 1
+  epsilon_anneal_time:
+  epsilon_anneal_type: "exponential"
+  epsilon_clipping: False
+  polyak_tau: 1
+  initial_exploration_episodes: 5000
+  training_interval_episodes: 4
+  target_update_interval_episodes: 200
+  hidden_sizes: [64, 64]
+
+# Logging setup
+wandb:
+  entity: "ktgw543210-tokyo-university-of-agriculture-and-technology"
+  tags: 'test'
+  project: 'marl-col'
+  group: "DQN-50000-${demand_scaler}-${demand_scale_start}_${demand_scale_end}"
+  name: '${demand_scaler}-demand-seed-${seed}'
+  mode: online
+  log: False
+
+gridsearch:
+  time_horizon: [20]
