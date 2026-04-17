@@ -62,7 +62,7 @@ Katsuhide Fujita\orcidID{0000-0001-7867-4281}}
 
 %
 \begin{abstract}
-Pricing systems in which agents actively learn pricing strategies for products and services are increasingly being deployed. Simulation studies have shown that the autonomy of such agents can sustain price increases across competing firms without explicit communication, a phenomenon known as algorithmic collusion. Prior work on inventory-constrained pricing markets has typically assumed that demand scale remains constant over time. In this paper, we study a more realistic setting by introducing a market environment in which demand scale varies over time and examining how this affects algorithmic collusion. Our framework preserves computable competitive and collusive benchmarks, enabling numerical comparison across demand scenarios. In experiments with Proximal Policy Optimization (PPO), we observe a negative correlation between the rate of change in demand scale and the resulting collusion index. These findings suggest that the temporal structure of demand may play an important role in the emergence of collusive behavior among learning agents.
+Dynamic pricing, in which agents actively learn pricing strategies for products and services, is increasingly being deployed. Simulation studies have shown that the autonomy of such agents can sustain price increases across competing firms without explicit communication, a phenomenon known as algorithmic collusion. Prior work on inventory-constrained pricing markets has typically assumed that demand scale remains constant over time. In this paper, we study a more realistic setting by introducing a market environment in which demand scale varies over time and examining how this affects algorithmic collusion. Our framework preserves computable competitive and collusive benchmarks, enabling numerical comparison across demand scenarios. In experiments with Proximal Policy Optimization (PPO), we focus on a negative correlation between the rate of change in demand scale and the resulting collusion index. These findings suggest that the temporal structure of demand plays an important role in the emergence of collusive behavior among learning agents.
 
 \keywords{algorithmic collusion \and reinforcement learning \and inventory-constrained markets \and time-varying demand scale \and PPO}
 % keywords{First keyword  \and Second keyword \and Another keyword.}
@@ -70,11 +70,11 @@ Pricing systems in which agents actively learn pricing strategies for products a
 %
 %
 \section{Introduction}
-Pricing algorithms are increasingly used in dynamic pricing and have attracted growing attention as firms rely more on data-driven pricing systems\cite{Chen2016}. At the same time, their autonomy has raised concerns that competing firms may sustain supra-competitive prices without explicit communication, giving rise to algorithmic collusion and related challenges for consumer welfare and competition policy\cite{mehra2016,ezrachi2017,harrington2019}.
+Pricing algorithms are increasingly used in dynamic pricing and have attracted growing attention as firms rely more on data-driven pricing systems\cite{Chen2016}. At the same time, their autonomy has raised concerns that competing firms sustain supra-competitive prices without explicit communication, giving rise to algorithmic collusion and related challenges for consumer welfare and competition policy\cite{mehra2016,ezrachi2017,harrington2019}.
 
 Prior research has shown that reinforcement-learning agents can endogenously develop coordinated pricing behavior in competitive environments\cite{calvano2020a}, and this line of work has been extended to questions of institutional design and welfare\cite{johnson2020}. In particular, Friedrich et al.\cite{friedrich2025learning} studied finite-horizon, inventory-constrained episodic markets, but assumed that the demand-scale factor remains constant throughout the episode.
 
-In many reservation markets, however, demand scale evolves over time, which may affect firms' pricing incentives and the sustainability of collusion. This paper makes two main contributions. First, we extend the inventory-constrained episodic market model by replacing the constant demand-scale factor $\lambda$ with a time-dependent factor $\lambda_t$. This extension preserves common competitive and collusive benchmarks that remain computable within practical time limits, enabling numerical comparison across demand scenarios. Second, using this framework, we examine how temporal demand variation affects algorithmic collusion. Our results show that sharper changes in demand scale are associated with a lower converged collusion index, especially under PPO, whereas DQN is less sensitive to this variation. These findings suggest that temporal demand structure can materially affect the pricing behavior learned by algorithms.
+In many reservation markets, however, demand scale evolves over time, which affects firms' pricing incentives and the sustainability of collusion. This paper makes two main contributions. First, we extend the inventory-constrained episodic market model by replacing the constant demand-scale factor $\lambda$ with a time-dependent factor $\lambda_t$. This extension preserves common competitive and collusive benchmarks that remain computable within practical time limits, enabling numerical comparison across demand scenarios. Second, using this framework, we examine how temporal demand variation affects algorithmic collusion. Our results show that sharper changes in demand scale are associated with a lower converged collusion index, especially under PPO, whereas DQN is less sensitive to this variation. These findings suggest that temporal demand structure can materially affect the pricing behavior learned by algorithms.
 
 % 本論文の構成は以下の通りである．まず第2節で関連研究を概観し，第3節で在庫制約つきエピソディック市場の問題設定を与える．第4節で市場規模係数を時変化させた環境設定を述べ，第5節で固定市場規模と時変市場規模における学習結果と比較・分析を示す．最後に第6節で結論と今後の課題を述べる．
 
@@ -88,8 +88,8 @@ The implications of such algorithmic pricing for competition law and policy have
 As a deep-reinforcement-learning extension, Hettich\cite{hettich2021} introduced DQN\cite{mnih2015}, providing a framework that can handle larger state spaces than tabular Q-learning.
 More recent work has also analyzed collusive pricing and differences in its degree in deep-reinforcement-learning-based pricing games using PPO\cite{schulman2017proximal}, DQN, and related methods\cite{Schlechtinger2024,deng2024algorithmic}.
 There are also studies on continuous pricing with policy-gradient methods\cite{martello2022autonomous}, as well as work that analyzes the competitive effects of pricing algorithms from both empirical and theoretical perspectives\cite{brown2021,assad2020,Abada2020,Sanchez-Cartas2022}.
-Most of these studies observe only the prices determined by algorithms, whereas many real markets are subject to inventory constraints.
-Friedrich et al.\cite{friedrich2025learning} showed that when learning algorithms observe both prices and inventories across repeated episodes, they can experimentally acquire collusive behavior in finite-horizon inventory-constrained markets.
+Most of these studies focus on only the prices determined by algorithms, whereas many real markets are subject to inventory constraints.
+Friedrich et al.\cite{friedrich2025learning} showed that when learning algorithms focus on both prices and inventories across repeated episodes, they can experimentally acquire collusive behavior in finite-horizon inventory-constrained markets.
 % 同研究では在庫制約つきの有限期間価格競争を，有限期間マルコフゲームとして定式化し，エージェントの暗黙的共謀を分析した．各時刻で企業は価格を同時に選択し，需要に応じて販売が発生し，在庫が更新される．
 
 Shintani et al.\cite{ShintaniUmeno2023ABCDEF} analyzed the temporal structure of average booking curves in reservation markets using real booking data from the hotel and rental-car industries.
@@ -223,7 +223,7 @@ Specifically, the available prices are constructed by equally dividing the inter
 
 We now describe the experimental environment obtained by extending the fixed-demand model to a time-varying-demand setting.
 The aim of this extension is to introduce non-stationary demand while preserving, in principle, the benchmark competitive and collusive prices by changing only the temporal allocation of total demand and leaving the overall demand calculation and demand shares intact.
-This avoids the need to recompute the Nash benchmark price at every time step and therefore makes it possible to evaluate temporal demand variation within practical computation times.
+This avoids the need to recompute the Nash benchmark price at every time step and, therefore, makes it possible to evaluate temporal demand variation within practical computation times.
 
 \subsection{Time-Varying Demand-Scale Factor}
 In prior work\cite{friedrich2025learning}, the demand-scale factor $\lambda$ is constant throughout the episode.
@@ -243,7 +243,8 @@ Despite introducing time variation, this extension has the practical advantage t
 Here, the Nash benchmark price refers to the benchmark defined over the episode-level price path in Eq.~\eqref{eq:episode_price_vector}.
 % 以下でいう「ナッシュ均衡価格」および「共謀価格」は，前節で導入したエピソード全体の価格系列問題に対応する基準価格$p^N$，$p^M$（無割引設定では各期一定）を指す．
 The reason is that, under a continuous-demand approximation, the Nash benchmark price under time-varying demand scale coincides with that of the fixed-demand model.
-We explain this argument briefly. Removing the floor function gives the continuous-demand approximation $\tilde d_{i,t}:=\lambda_t s_{i,t}$. Given the rivals' price paths, firm $i$ solves
+%We explain this argument briefly. 
+Removing the floor function gives the continuous-demand approximation $\tilde d_{i,t}:=\lambda_t s_{i,t}$. Given the rivals' price paths, firm $i$ solves
 \begin{align}
 \max_{(p_{i,1},\dots,p_{i,T})}\quad
 &\sum_{t=1}^{T}(p_{i,t}-c_i)\lambda_t s_{i,t}
@@ -265,7 +266,7 @@ In the model actually used in our experiments, however, demand is given by $\lfl
 Because $\lambda_t$ appears inside the floor function, the invariance described above is not guaranteed in a strict sense.
 This discrepancy is a boundary effect induced by discretization and is not the main axis of comparison in this paper.
 As a supplementary check, we numerically recomputed the competitive benchmark price for fixed-demand, linear-demand, and exponential-demand scenarios.
-The linear-demand case matched the fixed-demand case in every period, and even in the exponential-demand case the maximum deviation from the fixed-demand benchmark was only 0.0007 (approximately 0.04\%).
+The linear-demand case matched the fixed-demand case in every period, and even in the exponential-demand case, the maximum deviation from the fixed-demand benchmark was only 0.0007 (approximately 0.04\%).
 
 \if 0
 
@@ -291,7 +292,7 @@ Exponential  & 1 & 1.7037 & 1.7029 & 1.7024 & 1.7035 & 1.7031 \\
 
 \fi
 
-Accordingly, in this paper we retain the competitive and collusive prices from the fixed-demand case as common benchmarks across all scenarios, and treat temporal variation in $\lambda_t$ primarily as an extension that changes how total demand is allocated across time within an episode.
+Accordingly, we retain the competitive and collusive prices from the fixed-demand case as common benchmarks across all scenarios, and treat temporal variation in $\lambda_t$ primarily as an extension that changes how total demand is allocated across time within an episode.
 
 \subsection{Demand-Scale Scenario Design}
 To represent reservation-market demand patterns consistent with the ABCDEF law\cite{ShintaniUmeno2023ABCDEF}, we define the demand-scale factor $\lambda_t$ by
@@ -319,7 +320,7 @@ Instead, agents learn while implicitly inferring the demand level from the time 
 This assumption reflects reservation markets in which demand levels vary exogenously and are not fully observable.
 
 
-\section{Results}
+\section{Experimental Result}
 
 We empirically examine what pricing strategies DQN and PPO learn when the demand-scale factor $\lambda$ is fixed and when it varies over time.
 
@@ -368,9 +369,9 @@ Even in the varying-demand condition, the overall pattern of rise and fall in th
 
 
 Comparing PPO and DQN, DQN is less sensitive to demand variation.
-One possible explanation is that DQN updates Q-values from step-level transitions, so the pattern of demand-scale variation over the entire episode may be reflected less directly in per-step decisions.
+One possible explanation is that DQN updates Q-values from step-level transitions, so the pattern of demand-scale variation over the entire episode is reflected less directly in per-step decisions.
 By contrast, PPO reaches a collusion index of about 0.41 under fixed $\lambda$, but remains around 0.21 under time-varying $\lambda$ (the exponentially increasing pattern in Eq.~\eqref{eq:lambda_exp} with $a=400$).
-Because PPO updates policies from episode-level trajectories, the value of coordination in the first half of the episode may be evaluated as relatively small when the reward scale in the early phase (where $\lambda$ is small) is much lower than in the later phase.
+Because PPO updates policies from episode-level trajectories, the value of coordination in the first half of the episode is evaluated as relatively small when the reward scale in the early phase (where $\lambda$ is small) is much lower than in the later phase.
 
 \subsection{Behavioral Analysis of Learned Agents}
 
@@ -445,8 +446,8 @@ Table~\ref{tab:ppo_exp_collusion} shows that, for DQN, the collusion index varie
 For PPO, in contrast, the collusion index tends to be lower in increasing-demand scenarios where demand is concentrated in the later periods, and higher in decreasing-demand scenarios where demand is concentrated in the earlier periods.
 The largest difference between the two algorithms appears in the decreasing-demand scenarios with demand concentrated early in the episode ($a=1200,1600$): PPO shows a substantial increase in the collusion index relative to the fixed-demand case, whereas DQN shows a slight decrease.
 One possible explanation is that PPO, through on-policy trajectory-based updates, can more easily learn the advantage of maintaining high prices early in the episode when doing so improves total episode profit.
-By contrast, DQN relies on off-policy one-step TD learning with a replay buffer, which mixes transitions from high-demand and low-demand periods and may therefore make it more difficult to capture the time-dependent value of inventory allocation.
-In scenarios where demand is concentrated in the later periods, the gradients from the later steps may dominate the trajectory-based updates, which may hinder the learning of early-stage coordination and thereby lower the collusion index.
+By contrast, DQN relies on off-policy one-step TD learning with a replay buffer, which mixes transitions from high-demand and low-demand periods and therefore makes it more difficult to capture the time-dependent value of inventory allocation.
+In scenarios where demand is concentrated in the later periods, the gradients from the later steps dominate the trajectory-based updates, which hinders the learning of early-stage coordination and thereby lower the collusion index.
 When the inventory constraint is reduced to 420, the qualitative pattern of converged collusion across demand scenarios remains similar, but the overall collusion index becomes lower.
 These results suggest that the effect of temporal demand structure on collusion formation is not shared uniformly across learning algorithms, but instead depends on the interaction between the market environment and the learning-update mechanism.
 
@@ -456,15 +457,15 @@ These results suggest that the effect of temporal demand structure on collusion 
 In this paper, we investigated how time-varying demand scale affects the collusive behavior learned by algorithms in episodic inventory-constrained markets.
 Our main finding is that the temporal structure of demand has a substantial effect on collusion formation by learning agents.
 In particular, under PPO, collusion is stronger when demand is concentrated in the early part of the episode, whereas maintaining collusion becomes more difficult when demand is concentrated in the later part.
-Under DQN, by contrast, the response to the same environmental variation is comparatively small, suggesting that the learning style of the algorithm, in particular whether it is on-policy or off-policy, may fundamentally affect how agents adapt to demand variation.
+Under DQN, by contrast, the response to the same environmental variation is comparatively small, suggesting that the learning style of the algorithm, in particular, whether it is on-policy or off-policy, fundamentally affects how agents adapt to demand variation.
+%
+These findings suggest that temporal demand patterns in reservation markets are not merely a matter of allocating sales opportunities over time, but also serve as environmental factors that affect the sustainability of algorithmic collusion.
+Real airline-ticket and hotel-booking markets inevitably involve seasonality and temporal demand variation, and such temporal structure, therefore, affects competition under algorithmic pricing.
 
-These findings suggest that temporal demand patterns observed in reservation markets are not merely a matter of allocating sales opportunities over time, but may also serve as environmental factors that affect the sustainability of algorithmic collusion.
-Real airline-ticket and hotel-booking markets inevitably involve seasonality and temporal demand variation, and such temporal structure may therefore affect competition under algorithmic pricing.
-
-In the experiments conducted here, we fixed other environmental parameters such as the horizontal-differentiation parameter and product quality, and focused on the effect of temporal demand variation.
+In the experiments conducted here, we fixed other environmental parameters, such as the horizontal-differentiation parameter and product quality, and focused on the effect of temporal demand variation.
 An important direction for future work is to vary these parameters as well and clarify the combined effect of temporal demand variation and other environmental factors on collusion formation.
 In addition, while we motivated exponential demand variation by referring to reservation markets, we did not use empirically calibrated values for the rate of increase.
-Future work should construct more realistic market environments by combining realistic assumptions on quality, horizontal differentiation, and inventory constraints, and should then examine the implications of algorithmic collusion for real-world markets.
+One possible future work is to construct more realistic market environments by combining realistic assumptions on quality, horizontal differentiation, and inventory constraints, and examine the implications of algorithmic collusion for real-world markets.
 
 
 % ---- Bibliography ----
