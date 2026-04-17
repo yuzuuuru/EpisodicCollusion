@@ -117,10 +117,12 @@ def plot_exponential_curves(
         raise ValueError("a_values is empty.")
 
     t = np.arange(T)
+    default_figsize = plt.rcParams["figure.figsize"]
+    scaled_figsize = (default_figsize[0] * 0.8, default_figsize[1] * 0.8)
 
     results: Dict[float, Dict[str, float]] = {}
 
-    plt.figure()
+    plt.figure(figsize=scaled_figsize)
     for a in a_list:
         b, lam_end, s, curve = compute_params_and_curve(a, total, T)
         results[float(a)] = {"b": b, "lambda_end": lam_end, "sum": s}
@@ -135,6 +137,8 @@ def plot_exponential_curves(
     if title is None:
         title = f"Exponential demand scales (sum_{{t=0..{T-1}}} λ(t) = {total:g})"
     plt.title(title)
+    plt.xlim(0, T)
+    plt.xticks(list(range(0, T + 1, 5)))
 
     if show_legend:
         plt.legend()
