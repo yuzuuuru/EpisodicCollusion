@@ -206,4 +206,29 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.nav
+*.out
+*.run.xml
+*.snm
+*.synctex.gz
+*.toc
+*.vrb
+PAAMSreport_Kitamura/*.pdf
+jsaiac_tex_ja_utf8lf-2026_喜多村
+LaTeX2e+Proceedings+Templates+download (2)
 
+# Local reference materials
+Learning Collusion in Episodic Inventory-Constrained Markets.md
+Learning Collusion in Episodic Inventory-Constrained Markets.pdf
+SSRN-id3785966_koudoku.pdf
+PAAMSreport_Kitamura/samplepaper.tex
