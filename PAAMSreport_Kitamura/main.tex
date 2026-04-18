@@ -170,7 +170,6 @@ d_{i,t}=\left\lfloor \lambda\, s_{i,t} \right\rfloor
 \label{eq:scaled_demand_const}
 \end{equation}
 The actual sales quantity is then limited by the remaining inventory through Eq.~\eqref{eq:inventory_update}.
-
 Thus, demand is proportional to the demand share $s_{i,t}$, and $s_{i,t}$ decreases as the price $p_{i,t}$ increases.
 
 \subsection{Competitive and Collusive Benchmarks and the Collusion Index}
@@ -187,6 +186,7 @@ p_i=(p_{i,1},\dots,p_{i,T})
 at the start of the episode rather than choosing prices independently period by period.
 Accordingly, the Nash equilibrium in this paper is defined as a state in which, given the rivals' price paths, no firm can increase its total episode profit by unilaterally changing its own entire price path.
 Similarly, the collusive benchmark is defined as the solution that maximizes total profit by jointly choosing the entire set of firms' price paths.
+In practice, these benchmark prices are obtained numerically by solving the corresponding episode-level optimization problems.
 Under the no-discounting setting, Friedrich et al.\cite{friedrich2025learning} showed that both the competitive solution and the joint-profit-maximizing solution can be represented by repeating the same price in every period.
 We therefore refer to these repeated benchmark prices as the competitive price $p^N$ and the collusive price $p^M$, respectively, and use the corresponding profits
 $R^N_{i,t}$ and $R^M_{i,t}$, computed by applying these prices in each period through Eq.~\eqref{eq:profit_reward}, as the benchmarks for the collusion index.
@@ -300,13 +300,12 @@ To represent reservation-market demand patterns consistent with the ABCDEF law\c
 \lambda_t = a\exp(b(t-1))
 \label{eq:lambda_exp}
 \end{equation}
-
 where $a>0$ denotes the initial demand scale and $b\in\mathbb{R}$ is the growth-rate parameter. We compare scenarios under a common total-demand level, choosing $(a,b)$ so that
 \begin{equation}
 \sum_{t=1}^{20} a\exp(b(t-1)) = 20000
 \label{eq:lambda_sum_constraint}
 \end{equation}
-Thus, once $a$ is chosen, the value of $b$ is uniquely determined. Figure~\ref{fig:visualize_demand_curve} shows the resulting schedules for the seven values of $a$ used in our experiments. Smaller values of $a$ produce increasing-demand scenarios ($b>0$), larger values produce decreasing-demand scenarios ($b<0$), and $a=1000$ gives the constant-demand case.
+Thus, once $a$ is chosen, the value of $b$ is uniquely determined. Figure~\ref{fig:visualize_demand_curve} shows the resulting schedules for the seven values of $a$ used in our experiments. Smaller values of $a$ produce increasing-demand scenarios ($b>0$), larger values produce decreasing-demand scenarios ($b<0$), and $a=1000$ gives the constant-demand case. In our setting, $\lambda_t$ is not directly observed by the agents. Instead, agents learn while implicitly inferring the demand level from the time step $t$ and from observed outcomes such as sales and inventory. This assumption reflects reservation markets in which demand levels vary exogenously and are not fully observable.
 
 \begin{figure}[t]
     \centering
@@ -314,10 +313,6 @@ Thus, once $a$ is chosen, the value of $b$ is uniquely determined. Figure~\ref{f
     \caption{Exponential demand schedules with equal total demand.}
     \label{fig:visualize_demand_curve}
 \end{figure}
-
-In our setting, $\lambda_t$ is not directly observed by the agents.
-Instead, agents learn while implicitly inferring the demand level from the time step $t$ and from observed outcomes such as sales and inventory.
-This assumption reflects reservation markets in which demand levels vary exogenously and are not fully observable.
 
 
 \section{Experimental Result}
